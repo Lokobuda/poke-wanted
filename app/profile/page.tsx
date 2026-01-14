@@ -8,7 +8,7 @@ import {
   CheckCircle2, X, Sparkles, ChevronDown, ChevronLeft, ChevronRight,
   Layers, BarChart3, Trophy, Target, Filter, Search, FolderOpen, 
   ShieldCheck, Package, Lock, 
-  Ticket, CreditCard, Zap, ArrowLeft, Copy, CheckSquare
+  Ticket, CreditCard, Zap, ArrowLeft, Copy, CheckSquare, LogOut
 } from 'lucide-react'
 import { toPng } from 'html-to-image'
 import download from 'downloadjs'
@@ -133,7 +133,6 @@ function ProfileContent() {
   
   const toggleSelectCard = (id: string) => setSelectedForOrder(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id])
   
-  // FUNCIÓN SELECCIONAR TODO
   const handleSelectAllFiltered = () => {
       const allIds = filteredCards.map(c => c.id)
       const allSelected = allIds.every(id => selectedForOrder.includes(id))
@@ -151,7 +150,6 @@ function ProfileContent() {
   const handleLoadMore = () => setVisibleCount(prev => prev + 50)
   const handleOpenPosterMode = () => { if (selectedForOrder.length === 0) return toast.warning("Selecciona al menos una carta."); setPosterPage(0); setIsPosterMode(true) }
   
-  // --- DESCARGA ARREGLADA (Sin error TS y con CORS) ---
   const handleInteractiveDownload = async (totalPages: number) => { 
     if (isDownloading) return; 
     setIsDownloading(true); 
@@ -162,7 +160,7 @@ function ProfileContent() {
         
         for (let i = 0; i < totalPages; i++) { 
             setPosterPage(i); 
-            // Espera para renderizado
+            // Espera crítica para renderizado en Safari
             await new Promise(resolve => setTimeout(resolve, 1500)); 
             
             const posterNode = document.getElementById('visible-poster'); 
@@ -173,8 +171,8 @@ function ProfileContent() {
                     pixelRatio: 1.5, 
                     cacheBust: true, 
                     skipAutoScale: true,
-                    backgroundColor: '#0a0a0a',
-                    // style: { ... } // useCORS eliminado para evitar error TS, usamos atributo img
+                    // SOLUCIÓN FOTOS NEGRAS: Evitamos useCORS aquí y lo ponemos en la etiqueta <img>
+                    backgroundColor: '#0a0a0a', 
                 }); 
                 
                 setFlashActive(true); 
@@ -223,9 +221,14 @@ function ProfileContent() {
               setGymData({ name: g.name, logo_url: g.logo_url }) 
           }
           if (profile.gym_id) {
-              const { data: offers } = await supabase.from('gym_offers').select('*').eq('gym_id', profile.gym_id).eq('is_active', true)
+              const { data: offers } = await supabase
+                .from('gym_offers')
+                .select('*')
+                .eq('gym_id', profile.gym_id)
+                .eq('is_active', true)
               if (offers) setGymOffers(offers)
           }
+
         } else if (profile.subscription_status === 'PRO') { 
             currentStatus = 'PRO'; 
         }
@@ -356,7 +359,7 @@ function ProfileContent() {
             <div className="grid grid-cols-3 gap-3 w-full h-full max-h-full">
                 {cards.map((card:any) => (
                     <div key={card.id} className="relative aspect-[0.716] rounded-lg overflow-hidden shadow-lg border border-white/10 group bg-slate-900">
-                        {/* ESTA ES LA CLAVE: crossOrigin="anonymous" */}
+                        {/* ESTA ES LA CLAVE DE ORO: crossOrigin="anonymous" SOLO EN EL PÓSTER */}
                         <img src={card.image} className="w-full h-full object-cover" crossOrigin="anonymous" />
                     </div>
                 ))}
@@ -382,9 +385,10 @@ function ProfileContent() {
                 </div>
             </div>
 
-            {/* CONTROLES FLOTANTES ABAJO - VISIBLES EN IPHONE */}
+            {/* CONTROLES FLOTANTES ABAJO - AHORA VISIBLES EN IPHONE */}
             <div className="absolute bottom-0 left-0 right-0 p-6 pb-8 bg-black/80 backdrop-blur-xl border-t border-white/10 flex flex-col gap-4 z-50">
                 
+                {/* Paginación si hay más de 1 página */}
                 {totalPages > 1 && (
                     <div className="flex items-center justify-center gap-6 text-white mb-2">
                         <button onClick={() => setPosterPage(p => Math.max(0, p - 1))} disabled={posterPage === 0 || isDownloading} className="p-2 bg-white/10 rounded-full hover:bg-white/20 disabled:opacity-30"><ChevronLeft size={24} /></button>
@@ -540,6 +544,16 @@ function ProfileContent() {
             )}
         </div>
         
+        {/* BOTÓN CERRAR SESIÓN MÓVIL */}
+        <div className="mt-12 md:hidden px-6 pb-12">
+             <button 
+                 onClick={() => { window.dispatchEvent(new CustomEvent('open-logout-modal')) }}
+                 className="w-full py-4 bg-slate-900 border border-red-500/30 text-red-400 font-bold uppercase tracking-widest rounded-xl hover:bg-red-500/10 transition-colors flex items-center justify-center gap-2"
+             >
+                <LogOut size={18} /> Cerrar Sesión
+             </button>
+        </div>
+
       </div>
 
       {isSelectorOpen && (
@@ -555,10 +569,11 @@ function ProfileContent() {
                         <button onClick={() => setIsSelectorOpen(false)} className="p-2 bg-white/5 rounded-full text-slate-300 hover:text-white"><X size={20} /></button>
                     </div>
                     
+                    {/* FILTROS Y BUSCADOR */}
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-2 md:gap-4">
                         <div className="relative">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={14} />
-                            <input type="text" placeholder="Buscar..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full bg-slate-900 border border-white/10 rounded-lg py-2 pl-9 pr-3 text-xs text-white focus:outline-none focus:border-violet-500"/>
+                            <input type="text" placeholder="Buscar..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full bg-slate-950 border border-white/10 rounded-lg py-2 pl-9 pr-3 text-xs text-white focus:outline-none focus:border-violet-500"/>
                         </div>
                         <div className="relative">
                             <select value={filterAlbum} onChange={(e) => setFilterAlbum(e.target.value)} className="w-full appearance-none bg-slate-950 border border-white/10 rounded-lg py-2 pl-3 pr-8 text-xs text-white focus:outline-none focus:border-violet-500"><option value="ALL">Álbumes</option>{stats.projectsProgress.map(album => !album.isVault && !album.isSealed && (<option key={album.id} value={album.id}>{album.name}</option>))}</select>
@@ -587,7 +602,10 @@ function ProfileContent() {
                          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3 auto-rows-max">
                              {filteredCards.slice(0, visibleCount).map((c, index) => (
                                  <div key={`${c.id}-${index}`} onClick={() => toggleSelectCard(c.id)} className={`relative aspect-[63/88] rounded-lg overflow-hidden cursor-pointer transition-all duration-200 border ${selectedForOrder.includes(c.id) ? 'border-violet-500 shadow-[0_0_10px_rgba(139,92,246,0.5)] scale-[0.96]' : 'border-transparent opacity-80 hover:opacity-100'}`}>
+                                     
+                                     {/* AQUÍ ESTÁ LA CORRECCIÓN: SIN crossOrigin */}
                                      <img src={c.image} className="w-full h-full object-cover" loading="lazy" />
+                                     
                                      {selectedForOrder.includes(c.id) && <div className="absolute inset-0 bg-violet-600/40 backdrop-blur-[1px] flex items-center justify-center animate-in fade-in duration-200"><div className="bg-violet-600 rounded-full p-1 shadow-lg"><CheckCircle2 className="text-white" size={16} strokeWidth={3} /></div></div>}
                                  </div>
                              ))}
@@ -683,8 +701,7 @@ function ProfileContent() {
                                           <div className="flex items-center gap-3 text-sm text-slate-300"><CheckCircle2 size={16} className="text-violet-500"/> <span>Badge de perfil PRO</span></div>
                                       </div>
                                       <button onClick={handleSubscribe} disabled={isSubscribing} className="w-full bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-400 hover:to-amber-400 text-black py-4 rounded-xl text-sm font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-all shadow-lg active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed">
-                                         {isSubscribing ? <Loader2 className="animate-spin" size={18}/> : <><CreditCard size={18} /> Suscribirse</>}
-                                      </button>
+                                         {isSubscribing ? <Loader2 className="animate-spin" size={18}/> : <><CreditCard size={18} /> Suscribirse</>}</button>
                                   </div>
                               </div>
                           )}

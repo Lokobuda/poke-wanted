@@ -30,11 +30,15 @@ export default function ProfileHeader({
   onEditAvatar 
 }: ProfileHeaderProps) {
 
+  // NUEVA LÓGICA: Asumimos que no está cargada al principio
+  const [imgLoaded, setImgLoaded] = useState(false)
   const [imgError, setImgError] = useState(false)
   const [currentAvatar, setCurrentAvatar] = useState(avatarUrl)
 
   useEffect(() => { 
       setCurrentAvatar(avatarUrl)
+      // Al cambiar la URL, reseteamos estados
+      setImgLoaded(false)
       setImgError(false) 
   }, [avatarUrl])
 
@@ -42,8 +46,8 @@ export default function ProfileHeader({
   const progress = Math.min((xp / safeNextXp) * 100, 100)
   const isPremium = subscriptionType === 'GYM' || subscriptionType === 'PRO'
 
-  // Decidimos qué mostrar: ¿Hay URL válida y no ha dado error?
-  const showImage = currentAvatar && currentAvatar.length > 0 && !imgError
+  // Decidimos qué mostrar: ¿Hay URL y se cargó bien?
+  const showImage = currentAvatar && currentAvatar.length > 0 && imgLoaded && !imgError
 
   return (
     <div className="w-full flex flex-row items-center gap-4 sm:gap-6 md:gap-8 mb-8 sm:mb-10 animate-in fade-in slide-in-from-top-4 duration-700">
@@ -62,18 +66,21 @@ export default function ProfileHeader({
               <Pencil className="text-white" size={24} />
            </div>
 
-           {/* SI LA IMAGEN ESTÁ BIEN, LA MOSTRAMOS. IMPORTANTE: EL ESTILO HIDDEN/BLOCK */}
-           <img 
-               src={currentAvatar || ''} 
-               alt="Buddy" 
-               onError={() => setImgError(true)}
-               className={`w-full h-full object-contain p-2 drop-shadow-xl pixelated rendering-pixelated group-hover:scale-110 transition-transform duration-500 ${showImage ? 'block' : 'hidden'}`}
-               style={{ imageRendering: 'pixelated' }} 
-           />
+           {/* LA IMAGEN SIEMPRE ESTÁ EN EL DOM PERO OCULTA HASTA QUE CARGA */}
+           {currentAvatar && !imgError && (
+               <img 
+                   src={currentAvatar} 
+                   alt="Buddy" 
+                   onLoad={() => setImgLoaded(true)} // ¡Éxito! Marcamos como cargada
+                   onError={() => setImgError(true)} // Fallo.
+                   className={`w-full h-full object-contain p-2 drop-shadow-xl pixelated rendering-pixelated group-hover:scale-110 transition-transform duration-500 ${imgLoaded ? 'opacity-100' : 'opacity-0 absolute'}`}
+                   style={{ imageRendering: 'pixelated' }} 
+               />
+           )}
 
-           {/* SI NO HAY IMAGEN O DIO ERROR, MOSTRAMOS EL HUEVO */}
-           {!showImage && (
-             <div className="flex flex-col items-center justify-center animate-bounce-slow w-full h-full">
+           {/* SI NO SE HA CARGADO AÚN O DIO ERROR, MOSTRAMOS EL HUEVO */}
+           {(!showImage) && (
+             <div className="absolute inset-0 flex flex-col items-center justify-center animate-bounce-slow bg-slate-900/50 z-0">
                 <span className="text-4xl sm:text-5xl filter drop-shadow-lg leading-none">🥚</span>
              </div>
            )}

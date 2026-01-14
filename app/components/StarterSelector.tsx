@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
 import { Check, ChevronLeft, ChevronRight, Flame, Droplets, Leaf } from 'lucide-react'
 import { STARTER_PATHS } from '../../lib/ranks'
 
@@ -41,27 +40,27 @@ export default function StarterSelector({ isOpen, onSelect }: StarterSelectorPro
   }
 
   return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-in fade-in duration-300">
-      <div className="w-full max-w-2xl bg-slate-900 border border-white/10 rounded-3xl overflow-hidden shadow-2xl flex flex-col">
+    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/95 backdrop-blur-md animate-in fade-in duration-300">
+      <div className="w-full max-w-2xl bg-slate-900 border border-white/10 rounded-3xl overflow-hidden shadow-2xl flex flex-col max-h-[85vh]">
         
         {/* HEADER */}
-        <div className="p-8 text-center bg-gradient-to-b from-violet-900/20 to-transparent">
-          <h2 className="text-2xl font-black text-white uppercase tracking-tight mb-2">Elige tu Compañero</h2>
-          <p className="text-slate-400 text-sm">Este Pokémon evolucionará contigo a medida que crezca tu colección.</p>
+        <div className="p-6 text-center bg-gradient-to-b from-violet-900/20 to-transparent shrink-0">
+          <h2 className="text-xl md:text-2xl font-black text-white uppercase tracking-tight mb-1">Elige tu Compañero</h2>
+          <p className="text-slate-400 text-xs md:text-sm">Este Pokémon evolucionará contigo.</p>
         </div>
 
         {/* GEN SELECTOR */}
-        <div className="flex items-center justify-between px-4 mb-4">
-          <button onClick={prevGen} className="p-3 rounded-full hover:bg-white/5 text-slate-400 hover:text-white transition-colors"><ChevronLeft /></button>
+        <div className="flex items-center justify-between px-4 mb-2 shrink-0">
+          <button onClick={prevGen} className="p-2 rounded-full hover:bg-white/5 text-slate-400 hover:text-white transition-colors"><ChevronLeft /></button>
           <div className="text-center">
-            <h3 className="text-xl font-bold text-white">{currentGen.name}</h3>
-            <span className="text-xs font-mono text-slate-500">{currentGen.year}</span>
+            <h3 className="text-lg font-bold text-white">{currentGen.name}</h3>
+            <span className="text-[10px] font-mono text-slate-500">{currentGen.year}</span>
           </div>
-          <button onClick={nextGen} className="p-3 rounded-full hover:bg-white/5 text-slate-400 hover:text-white transition-colors"><ChevronRight /></button>
+          <button onClick={nextGen} className="p-2 rounded-full hover:bg-white/5 text-slate-400 hover:text-white transition-colors"><ChevronRight /></button>
         </div>
 
-        {/* POKEMON GRID */}
-        <div className="flex-1 p-8 grid grid-cols-3 gap-6">
+        {/* POKEMON GRID - CON SCROLL SI ES NECESARIO */}
+        <div className="flex-1 p-4 md:p-8 grid grid-cols-1 sm:grid-cols-3 gap-4 overflow-y-auto">
           {['grass', 'fire', 'water'].map((type) => {
             const isSelected = selectedType === type
             const sprite = starters[type].basic
@@ -77,11 +76,11 @@ export default function StarterSelector({ isOpen, onSelect }: StarterSelectorPro
                 key={type}
                 onClick={() => setSelectedType(type)}
                 className={`
-                  relative cursor-pointer rounded-2xl border-2 transition-all duration-300 group flex flex-col items-center justify-center py-6 gap-4
-                  ${isSelected ? 'border-violet-500 bg-violet-500/10 shadow-[0_0_20px_rgba(139,92,246,0.3)] scale-105' : `border-white/5 ${typeColor} opacity-70 hover:opacity-100`}
+                  relative cursor-pointer rounded-2xl border-2 transition-all duration-300 group flex flex-row sm:flex-col items-center justify-between sm:justify-center p-4 sm:py-6 gap-4
+                  ${isSelected ? 'border-violet-500 bg-violet-500/10 shadow-[0_0_20px_rgba(139,92,246,0.3)] scale-[1.02]' : `border-white/5 ${typeColor} opacity-70 hover:opacity-100`}
                 `}
               >
-                <div className="relative w-24 h-24">
+                <div className="relative w-16 h-16 sm:w-24 sm:h-24">
                    <img src={sprite} className="w-full h-full object-contain drop-shadow-xl pixelated rendering-pixelated" style={{ imageRendering: 'pixelated' }} />
                 </div>
                 
@@ -93,15 +92,15 @@ export default function StarterSelector({ isOpen, onSelect }: StarterSelectorPro
           })}
         </div>
 
-        {/* FOOTER */}
-        <div className="p-6 border-t border-white/5 bg-slate-950/50 flex justify-center">
+        {/* FOOTER SIEMPRE VISIBLE */}
+        <div className="p-4 md:p-6 border-t border-white/5 bg-slate-950/80 backdrop-blur-md flex justify-center shrink-0 safe-bottom">
           <button 
             disabled={!selectedType}
             onClick={handleConfirm}
             className={`
-              px-12 py-4 rounded-xl font-black uppercase tracking-widest transition-all
+              w-full md:w-auto px-12 py-4 rounded-xl font-black uppercase tracking-widest transition-all text-xs md:text-sm
               ${selectedType 
-                ? 'bg-violet-600 text-white shadow-xl shadow-violet-900/20 hover:scale-105' 
+                ? 'bg-violet-600 text-white shadow-xl shadow-violet-900/20 hover:scale-105 active:scale-95' 
                 : 'bg-slate-800 text-slate-500 cursor-not-allowed'}
             `}
           >

@@ -32,6 +32,13 @@ export default function Navbar() {
     return () => subscription.unsubscribe()
   }, [])
 
+  // Escuchar evento de logout desde perfil móvil
+  useEffect(() => {
+    const handleOpenLogout = () => setShowLogoutModal(true);
+    window.addEventListener('open-logout-modal', handleOpenLogout);
+    return () => window.removeEventListener('open-logout-modal', handleOpenLogout);
+  }, []);
+
   const handleLogout = async () => {
     setIsLoggingOut(true)
     try {
@@ -55,17 +62,10 @@ export default function Navbar() {
   return (
     <>
       <nav className="fixed top-0 w-full z-50 flex justify-center">
-        {/* ALTURA AJUSTADA: h-20 en PC, h-16 en móvil */}
         <div className="w-full flex items-center justify-between bg-slate-900/90 backdrop-blur-xl border-b border-white/5 px-4 py-3 md:px-8 shadow-2xl h-16 md:h-20 transition-all">
           
-          {/* LOGO */}
           <Link href="/profile" className="flex items-center gap-3 group cursor-pointer">
-            <Logo 
-              width={48} 
-              height={48} 
-              className="md:w-[64px] md:h-[64px] transition-transform duration-300 group-hover:scale-110" 
-            />
-            {/* TEXTO: Visible en móvil pero más pequeño, grande en PC */}
+            <Logo width={48} height={48} className="md:w-[64px] md:h-[64px] transition-transform duration-300 group-hover:scale-110" />
             <div className="flex flex-col justify-center">
                 <span className="font-black italic tracking-tighter text-xl md:text-3xl text-white leading-none whitespace-nowrap pr-2 drop-shadow-lg">
                     POKÉ<span className="text-transparent bg-clip-text bg-gradient-to-r from-violet-400 to-fuchsia-400">BINDERS</span>
@@ -73,11 +73,9 @@ export default function Navbar() {
             </div>
           </Link>
 
-          {/* ZONA DERECHA */}
           <div className="flex items-center gap-3 md:gap-6">
             {user && (
               <Link href="/create">
-                {/* BOTÓN CREAR: Icono grande en móvil, Texto en PC */}
                 <button 
                   id="tour-create-btn" 
                   className={`
@@ -89,10 +87,7 @@ export default function Navbar() {
                     w-10 h-10 md:w-auto md:h-auto md:px-6 md:py-2.5 p-0
                   `}
                 >
-                  {/* Icono en móvil */}
                   <Plus size={20} strokeWidth={3} className={`md:hidden ${isTutorialMode ? 'animate-bounce' : ''}`} />
-                  
-                  {/* Icono + Texto en PC */}
                   <FolderPlus size={18} strokeWidth={2.5} className="hidden md:block" />
                   <span className="hidden md:inline text-xs">Crear Álbum</span>
                 </button>
@@ -112,13 +107,10 @@ export default function Navbar() {
                       <p className="text-[9px] text-slate-500 font-black tracking-widest uppercase mb-0.5 group-hover:text-violet-400 transition-colors">Entrenador</p>
                       <p className="text-xs font-bold text-white leading-none truncate max-w-[100px]">{username}</p>
                    </div>
-                   {/* AVATAR: Un poco más pequeño en móvil */}
                    <div className="w-9 h-9 md:w-11 md:h-11 bg-slate-800 border-2 border-white/10 rounded-full flex items-center justify-center text-violet-400 font-black shadow-lg group-hover:border-violet-500 group-hover:shadow-[0_0_15px_rgba(139,92,246,0.4)] group-hover:scale-105 transition-all overflow-hidden">
                       <span className="text-xs md:text-sm">{initial}</span>
                    </div>
                 </Link>
-                
-                {/* LOGOUT: Visible solo en PC o Menú */}
                 <button onClick={() => setShowLogoutModal(true)} className="hidden md:flex text-slate-600 hover:text-red-500 transition-colors p-2 hover:bg-white/5 rounded-full" title="Cerrar sesión">
                   <LogOut size={20} />
                 </button>
@@ -128,7 +120,6 @@ export default function Navbar() {
         </div>
       </nav>
 
-      {/* Espaciador dinámico para no tapar contenido */}
       <div className="h-20 md:h-28 w-full" />
 
       <AuthModal isOpen={isAuthOpen} onClose={() => setIsAuthOpen(false)} />

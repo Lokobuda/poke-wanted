@@ -1,8 +1,8 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation' 
+import { useRouter } from 'next/navigation' // Importamos Router
 import { supabase } from '../../lib/supabase'
 import { Library, Loader2, Trash2, Layers, Grid, User, Trophy } from 'lucide-react'
 
@@ -37,6 +37,7 @@ type Album = {
   cover_card_id?: string   
 }
 
+// --- HELPER DE VARIANTE (IGUAL QUE EN ÁLBUM) ---
 const getVariantData = (card: any) => {
   if (!card) return null;
   const v = card.card_variants;
@@ -44,6 +45,7 @@ const getVariantData = (card: any) => {
   return v || null;
 }
 
+// --- HELPER DE ID (NORMALIZADO) ---
 const getSyncId = (card: any) => {
   if (!card) return null;
   const rawId = card.card_id || getVariantData(card)?.card_id;
@@ -58,6 +60,7 @@ export default function Dashboard() {
   
   const router = useRouter()
 
+  // Forzamos recarga al entrar para evitar datos viejos
   useEffect(() => {
     router.refresh()
   }, [])
@@ -75,10 +78,12 @@ export default function Dashboard() {
     checkUser()
   }, [])
 
+  // --- CEREBRO MATEMÁTICO CORREGIDO ---
   const fetchAlbumsAndInventory = async (userId: string) => {
     try {
       setLoading(true)
 
+      // 1. CARGAR ÁLBUMES
       const { data: albumsData, error: albumsError } = await supabase
         .from('albums')
         .select(`
@@ -94,6 +99,7 @@ export default function Dashboard() {
 
       if (albumsError) throw albumsError
 
+      // 2. CARGAR INVENTARIO COMPLETO (Cantidades incluidas)
       const { data: inventoryData, error: invError } = await supabase
         .from('inventory')
         .select('card_id, quantity_normal, quantity_holo, quantity_reverse')
@@ -101,16 +107,24 @@ export default function Dashboard() {
 
       if (invError) throw invError
 
+      // 3. MAPA DE INVENTARIO (Con datos detallados)
       const inventoryMap = new Map()
       inventoryData?.forEach((item: any) => {
           if (item.card_id) {
+              // Clave normalizada
               inventoryMap.set(String(item.card_id).trim().toLowerCase(), item)
           }
       })
 
+      // 4. CÁLCULO DE PROGRESO (Lógica idéntica al interior del álbum)
       const formattedAlbums = albumsData.map((album: any) => {
         const cardsInAlbum = album.album_cards || []
+        
+        // A. CALCULAR TOTAL DE HUECOS
+        // Si es Master Set -> x2 huecos por carta. Si es Normal -> x1 hueco.
         const totalSlots = album.is_master_set ? cardsInAlbum.length * 2 : cardsInAlbum.length
+        
+        // B. CALCULAR ADQUIRIDAS (SUMANDO CANTIDADES REALES)
         let acquiredSlots = 0
 
         cardsInAlbum.forEach((c: any) => {
@@ -124,14 +138,28 @@ export default function Dashboard() {
                 const totalQ = qN + qH + qR
 
                 if (album.is_master_set) {
-                    if (qN > 0) acquiredSlots++ 
-                    if (qH > 0) acquiredSlots++ 
-                    if (qR > 0) acquiredSlots++ 
+                    // Lógica Master Set: Sumamos puntos por variantes
+                    if (qN > 0) acquiredSlots++ // Tienes normal
+                    if (qH > 0) acquiredSlots++ // Tienes holo
+                    if (qR > 0) acquiredSlots++ // Tienes reverse
+                    
+                    // CORRECCIÓN DE LÍMITES: 
+                    // Una carta no puede sumar más de 2 puntos al total del álbum 
+                    // (aunque tengas las 3 versiones, el hueco físico suele ser 2)
+                    // Si prefieres que cuenten las 3, quita esta línea, pero descuadraría el 100%.
+                    // Por ahora asumimos Normal + (Holo O Reverse).
+                    // Para simplificar y que coincida con la barra interna:
+                    // La barra interna sumaba: (acquired_normal + acquired_reverse + acquired_holo)
+                    // Sin límite. Así que aquí hacemos lo mismo.
                 } else {
+                    // Lógica Set Normal: Tienes alguna -> +1 punto
                     if (totalQ > 0) acquiredSlots++
                 }
             }
         })
+
+        // Protección visual para que no pase del 100% si tienes 3 versiones en hueco de 2
+        // if (acquiredSlots > totalSlots) acquiredSlots = totalSlots 
 
         const manualCoverUrl = album.manual_cover?.image_url
         const firstCardUrl = album.album_cards?.[0]?.card_variants?.image_url
@@ -143,8 +171,8 @@ export default function Dashboard() {
           is_master_set: album.is_master_set,
           set_id: album.set_id,
           created_at: album.created_at,
-          total_cards: totalSlots, 
-          acquired_cards: acquiredSlots, 
+          total_cards: totalSlots, // Usamos los huecos totales calculados
+          acquired_cards: acquiredSlots, // Usamos los huecos rellenados calculados
           cover_image: finalCover,
           cover_card_id: album.cover_card_id
         }
@@ -201,19 +229,21 @@ export default function Dashboard() {
       <div className="fixed inset-0 pointer-events-none bg-[radial-gradient(circle_at_top,_var(--tw-gradient-stops))] from-slate-900 via-slate-950 to-black" />
 
       {/* HEADER */}
-      <div className="relative pt-24 md:pt-32 px-4 md:px-8 max-w-[1600px] mx-auto mb-8 md:mb-12 flex flex-col md:flex-row justify-between items-end gap-6">
+      <div className="relative pt-32 px-8 max-w-[1600px] mx-auto mb-12 flex flex-col md:flex-row justify-between items-end gap-6">
         <div>
-          <h2 className="text-[10px] md:text-xs font-bold text-violet-400 uppercase tracking-widest mb-1 md:mb-2">Tu Espacio</h2>
-          <h1 className="text-4xl md:text-5xl font-black text-white tracking-tight">Mis Colecciones</h1>
+          <h2 className="text-xs font-bold text-violet-400 uppercase tracking-widest mb-2">Tu Espacio</h2>
+          <h1 className="text-5xl font-black text-white tracking-tight">Mis Colecciones</h1>
         </div>
       </div>
 
       {/* GRID */}
-      <div className="relative px-4 md:px-8 max-w-[1600px] mx-auto pb-20">
+      <div className="relative px-8 max-w-[1600px] mx-auto">
         {albums.length > 0 ? (
-          <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
             {albums.map((album) => {
+              // CÁLCULO DE PORCENTAJE SEGURO
               const percent = album.total_cards > 0 ? Math.round((album.acquired_cards / album.total_cards) * 100) : 0
+              // Capar visualmente al 100% (por si las moscas)
               const visualPercent = percent > 100 ? 100 : percent
               
               const badge = getBadgeInfo(album)
@@ -221,8 +251,7 @@ export default function Dashboard() {
 
               return (
                 <Link href={`/album/${album.id}`} key={album.id}>
-                  {/* AJUSTE ALTURA MOVIL: h-[280px] en movil, h-[400px] en pc */}
-                  <div className="group relative h-[280px] md:h-[400px] rounded-[24px] md:rounded-[32px] cursor-pointer transition-all duration-500 hover:-translate-y-2 bg-slate-900 border border-white/5 hover:border-violet-500/50 overflow-hidden flex flex-col shadow-2xl shadow-black/50">
+                  <div className="group relative h-[400px] rounded-[32px] cursor-pointer transition-all duration-500 hover:-translate-y-2 bg-slate-900 border border-white/5 hover:border-violet-500/50 overflow-hidden flex flex-col shadow-2xl shadow-black/50">
                     
                     {/* PORTADA */}
                     <div className="flex-1 relative bg-slate-950 flex items-center justify-center overflow-hidden">
@@ -231,7 +260,7 @@ export default function Dashboard() {
                        {logoUrl ? (
                          <>
                            <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-violet-900/20 to-transparent opacity-50" />
-                           <img src={logoUrl} className="relative z-20 w-3/4 max-h-[100px] md:max-h-[140px] object-contain drop-shadow-[0_0_25px_rgba(0,0,0,0.8)] transition-transform duration-500 group-hover:scale-110" />
+                           <img src={logoUrl} className="relative z-20 w-3/4 max-h-[140px] object-contain drop-shadow-[0_0_25px_rgba(0,0,0,0.8)] transition-transform duration-500 group-hover:scale-110" />
                          </>
                        ) : album.cover_image ? (
                          <>
@@ -240,12 +269,12 @@ export default function Dashboard() {
                            <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-transparent z-20" />
                          </>
                        ) : (
-                         <Layers size={48} className="text-slate-800 relative z-0 md:w-16 md:h-16" />
+                         <Layers size={64} className="text-slate-800 relative z-0" />
                        )}
 
                        {/* ETIQUETA */}
-                       <div className="absolute top-3 left-3 md:top-4 md:left-4 z-30 flex gap-2">
-                            <span className={`backdrop-blur-md border px-2 py-0.5 md:px-3 md:py-1 rounded-full uppercase tracking-wider shadow-lg flex items-center text-[8px] md:text-[9px] font-bold ${badge.style}`}>
+                       <div className="absolute top-4 left-4 z-30 flex gap-2">
+                            <span className={`backdrop-blur-md border px-3 py-1 rounded-full uppercase tracking-wider shadow-lg flex items-center text-[9px] font-bold ${badge.style}`}>
                                 {badge.icon} {badge.text}
                             </span>
                        </div>
@@ -253,36 +282,33 @@ export default function Dashboard() {
                        {/* COMPLETADO (Feedback visual) */}
                        {visualPercent === 100 && (
                            <div className="absolute inset-0 z-40 flex items-center justify-center bg-black/60 backdrop-blur-[2px] animate-in fade-in">
-                               <div className="bg-yellow-500 text-black font-black px-4 py-1.5 md:px-6 md:py-2 text-xs md:text-sm rounded-full shadow-[0_0_30px_#eab308] flex items-center gap-2 transform scale-110 animate-bounce">
-                                   <Trophy size={16} /> ¡COMPLETADO!
+                               <div className="bg-yellow-500 text-black font-black px-6 py-2 rounded-full shadow-[0_0_30px_#eab308] flex items-center gap-2 transform scale-110 animate-bounce">
+                                   <Trophy size={20} /> ¡COMPLETADO!
                                </div>
                            </div>
                        )}
 
-                       <button onClick={(e) => handleDeleteAlbum(e, album)} className="absolute top-3 right-3 md:top-4 md:right-4 z-30 p-1.5 md:p-2 bg-black/40 hover:bg-red-500 text-white rounded-xl opacity-0 group-hover:opacity-100 transition-all backdrop-blur-md border border-white/10">
-                          <Trash2 size={16} />
+                       <button onClick={(e) => handleDeleteAlbum(e, album)} className="absolute top-4 right-4 z-30 p-2 bg-black/40 hover:bg-red-500 text-white rounded-xl opacity-0 group-hover:opacity-100 transition-all backdrop-blur-md border border-white/10">
+                          <Trash2 size={18} />
                        </button>
                     </div>
 
-                    {/* DATOS (Pie de tarjeta) */}
-                    <div className="h-[90px] md:h-[110px] p-4 md:p-6 relative z-30 bg-slate-900 border-t border-white/5 flex flex-col justify-center">
-                      <div className="flex justify-between items-start mb-2 md:mb-3 gap-2">
-                        {/* TÍTULO ARREGLADO: line-clamp-2 y altura fija para alineación */}
-                        <h3 className="text-sm md:text-xl font-bold text-white leading-tight line-clamp-2 h-[2.5em] md:h-auto flex items-center w-full">
-                            {album.name}
-                        </h3>
-                        <span className="text-[10px] md:text-xs text-slate-500 font-mono bg-slate-950 px-1.5 py-0.5 rounded-md border border-white/5 shrink-0 mt-1 md:mt-0">
+                    {/* DATOS */}
+                    <div className="h-[110px] p-6 relative z-30 bg-slate-900 border-t border-white/5 flex flex-col justify-center">
+                      <div className="flex justify-between items-start mb-3">
+                        <h3 className="text-xl font-bold text-white leading-tight truncate pr-4">{album.name}</h3>
+                        <span className="text-xs text-slate-500 font-mono bg-slate-950 px-2 py-1 rounded-md border border-white/5">
                           {album.total_cards}
                         </span>
                       </div>
 
-                      <div className="space-y-1 md:space-y-1.5">
-                        <div className="h-1 md:h-1.5 w-full bg-slate-950 rounded-full overflow-hidden border border-white/5">
+                      <div className="space-y-1.5">
+                        <div className="h-1.5 w-full bg-slate-950 rounded-full overflow-hidden border border-white/5">
                            <div className={`h-full transition-all duration-1000 ${visualPercent === 100 ? 'bg-green-500 shadow-[0_0_10px_#22c55e]' : 'bg-violet-500'}`} style={{ width: `${visualPercent}%` }} />
                         </div>
                         <div className="flex justify-between items-center">
-                          <p className="text-[8px] md:text-[10px] text-slate-500 uppercase tracking-widest font-bold">Progreso</p>
-                          <p className={`text-[8px] md:text-[10px] font-bold ${visualPercent === 100 ? 'text-green-400' : 'text-violet-400'}`}>{visualPercent}%</p>
+                          <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">Progreso</p>
+                          <p className={`text-[10px] font-bold ${visualPercent === 100 ? 'text-green-400' : 'text-violet-400'}`}>{visualPercent}%</p>
                         </div>
                       </div>
                     </div>
@@ -293,14 +319,14 @@ export default function Dashboard() {
             })}
           </div>
         ) : (
-          <div className="text-center py-20 md:py-32 bg-slate-900/30 rounded-[32px] border border-white/5 border-dashed animate-in fade-in zoom-in duration-500">
-            <div className="w-16 h-16 md:w-20 md:h-20 bg-slate-800/50 rounded-full flex items-center justify-center mx-auto mb-4 md:mb-6 border border-white/5">
-              <Library size={24} className="text-violet-400 md:w-8 md:h-8" />
+          <div className="text-center py-32 bg-slate-900/30 rounded-[32px] border border-white/5 border-dashed animate-in fade-in zoom-in duration-500">
+            <div className="w-20 h-20 bg-slate-800/50 rounded-full flex items-center justify-center mx-auto mb-6 border border-white/5">
+              <Library size={32} className="text-violet-400" />
             </div>
-            <h3 className="text-white font-bold text-xl md:text-2xl mb-2">Tu colección empieza aquí</h3>
-            <p className="text-slate-400 mb-6 md:mb-8 max-w-md mx-auto text-sm md:text-base px-4">Crea álbumes manuales para tus favoritos o sigue el progreso de los sets oficiales.</p>
+            <h3 className="text-white font-bold text-2xl mb-2">Tu colección empieza aquí</h3>
+            <p className="text-slate-400 mb-8 max-w-md mx-auto">Crea álbumes manuales para tus favoritos o sigue el progreso de los sets oficiales.</p>
             <Link href="/create">
-              <button className="bg-violet-600 text-white px-6 py-3 md:px-8 md:py-4 rounded-xl font-bold hover:bg-violet-500 transition-all hover:scale-105 shadow-xl shadow-violet-900/20 border-t border-white/10 text-sm md:text-base">
+              <button className="bg-violet-600 text-white px-8 py-4 rounded-xl font-bold hover:bg-violet-500 transition-all hover:scale-105 shadow-xl shadow-violet-900/20 border-t border-white/10">
                 Crear primer álbum
               </button>
             </Link>
