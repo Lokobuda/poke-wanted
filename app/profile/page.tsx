@@ -489,36 +489,64 @@ function ProfileContent() {
       </div>
 
       {isSelectorOpen && (
-        <div className="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center p-4 md:p-8 backdrop-blur-sm animate-in fade-in duration-200">
-             <div className="bg-slate-900 w-full max-w-6xl h-[85vh] rounded-3xl border border-white/10 flex flex-col shadow-2xl overflow-hidden">
-                 <div className="p-6 border-b border-white/5 flex flex-col gap-6 bg-slate-900/95 z-20">
+        <div className="fixed inset-0 z-[100] bg-black/95 md:bg-black/90 flex items-center justify-center p-0 md:p-8 backdrop-blur-sm animate-in fade-in duration-200">
+             <div className="bg-slate-950 md:bg-slate-900 w-full md:max-w-6xl h-full md:h-[85vh] md:rounded-3xl border-0 md:border border-white/10 flex flex-col shadow-2xl overflow-hidden">
+                 
+                 {/* HEADER DEL SELECTOR - OPTIMIZADO PARA MÓVIL */}
+                 <div className="p-4 md:p-6 border-b border-white/5 flex flex-col gap-4 bg-slate-900/95 z-20">
                     <div className="flex justify-between items-center">
-                        <div><h2 className="text-2xl font-black text-white tracking-tight">Selecciona Objetivos</h2><p className="text-slate-400 text-xs mt-1">Elige las cartas que te faltan para tu Wanted List</p></div>
-                        <button onClick={() => setIsSelectorOpen(false)} className="p-2 hover:bg-white/10 rounded-full transition-colors"><X className="text-slate-400 hover:text-white" /></button>
+                        <div>
+                            <h2 className="text-xl md:text-2xl font-black text-white tracking-tight">Selecciona Objetivos</h2>
+                            <p className="text-slate-400 text-[10px] md:text-xs mt-0.5">Elige las cartas para tu Wanted List</p>
+                        </div>
+                        <button onClick={() => setIsSelectorOpen(false)} className="p-2 bg-white/5 rounded-full text-slate-300 hover:text-white"><X size={20} /></button>
                     </div>
-                    <div className="flex flex-col md:flex-row gap-4">
-                        <div className="flex-1 relative"><Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={16} /><input type="text" placeholder="Buscar Pokémon..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full bg-slate-950 border border-white/10 rounded-xl py-2.5 pl-10 pr-4 text-sm text-white focus:outline-none focus:border-violet-500 transition-colors"/></div>
-                        <div className="relative min-w-[200px]"><select value={filterAlbum} onChange={(e) => setFilterAlbum(e.target.value)} className="w-full appearance-none bg-slate-950 border border-white/10 rounded-xl py-2.5 pl-4 pr-10 text-sm text-white focus:outline-none focus:border-violet-500 cursor-pointer"><option value="ALL">Todos los Álbumes</option>{stats.projectsProgress.map(album => !album.isVault && !album.isSealed && (<option key={album.id} value={album.id}>{album.name}</option>))}</select><FolderOpen className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" size={14} /></div>
-                        <div className="relative min-w-[150px]"><select value={filterSet} onChange={(e) => setFilterSet(e.target.value)} className="w-full appearance-none bg-slate-950 border border-white/10 rounded-xl py-2.5 pl-4 pr-10 text-sm text-white focus:outline-none focus:border-violet-500 cursor-pointer"><option value="ALL">Todos los Sets</option>{uniqueSets.map(set => (<option key={set.id} value={set.id}>{set.name}</option>))}</select><Filter className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" size={14} /></div>
-                        <div className="relative min-w-[150px]"><select value={filterRarity} onChange={(e) => setFilterRarity(e.target.value)} className="w-full appearance-none bg-slate-950 border border-white/10 rounded-xl py-2.5 pl-4 pr-10 text-sm text-white focus:outline-none focus:border-violet-500 cursor-pointer"><option value="ALL">Todas las Rarezas</option>{uniqueRarities.map(r => (<option key={r} value={r}>{RARITY_TRANSLATIONS[r] || r}</option>))}</select><ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" size={14} /></div>
+                    
+                    {/* FILTROS EN GRID - 1 COLUMNA EN MÓVIL, 4 EN PC */}
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-2 md:gap-4">
+                        <div className="relative">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={14} />
+                            <input type="text" placeholder="Buscar..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full bg-slate-950 border border-white/10 rounded-lg py-2 pl-9 pr-3 text-xs text-white focus:outline-none focus:border-violet-500"/>
+                        </div>
+                        <div className="relative">
+                            <select value={filterAlbum} onChange={(e) => setFilterAlbum(e.target.value)} className="w-full appearance-none bg-slate-950 border border-white/10 rounded-lg py-2 pl-3 pr-8 text-xs text-white focus:outline-none focus:border-violet-500"><option value="ALL">Álbumes</option>{stats.projectsProgress.map(album => !album.isVault && !album.isSealed && (<option key={album.id} value={album.id}>{album.name}</option>))}</select>
+                            <FolderOpen className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" size={12} />
+                        </div>
+                        <div className="relative">
+                            <select value={filterSet} onChange={(e) => setFilterSet(e.target.value)} className="w-full appearance-none bg-slate-950 border border-white/10 rounded-lg py-2 pl-3 pr-8 text-xs text-white focus:outline-none focus:border-violet-500"><option value="ALL">Sets</option>{uniqueSets.map(set => (<option key={set.id} value={set.id}>{set.name}</option>))}</select>
+                            <Filter className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" size={12} />
+                        </div>
+                        <div className="relative">
+                            <select value={filterRarity} onChange={(e) => setFilterRarity(e.target.value)} className="w-full appearance-none bg-slate-950 border border-white/10 rounded-lg py-2 pl-3 pr-8 text-xs text-white focus:outline-none focus:border-violet-500"><option value="ALL">Rarezas</option>{uniqueRarities.map(r => (<option key={r} value={r}>{RARITY_TRANSLATIONS[r] || r}</option>))}</select>
+                            <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" size={12} />
+                        </div>
                     </div>
                  </div>
-                 <div className="flex-1 overflow-y-auto p-6 bg-slate-950/30">
-                     {filteredCards.length === 0 ? <div className="flex flex-col items-center justify-center h-full text-slate-500 gap-4"><Target size={48} className="opacity-20" /><p>No se encontraron cartas con esos filtros</p></div> : 
-                         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 auto-rows-max">
+
+                 {/* GRID DE CARTAS - EXPANDIDO PARA OCUPAR TODO EL ESPACIO */}
+                 <div className="flex-1 overflow-y-auto p-4 bg-slate-950/30">
+                     {filteredCards.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center h-full text-slate-500 gap-4">
+                            <Target size={40} className="opacity-20" />
+                            <p className="text-xs">Sin resultados</p>
+                        </div>
+                     ) : (
+                         <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3 auto-rows-max pb-20">
                              {filteredCards.slice(0, visibleCount).map((c, index) => (
-                                 <div key={`${c.id}-${index}`} onClick={() => toggleSelectCard(c.id)} className={`relative aspect-[63/88] rounded-xl overflow-hidden cursor-pointer transition-all duration-200 border-2 ${selectedForOrder.includes(c.id) ? 'border-violet-500 shadow-[0_0_15px_rgba(139,92,246,0.5)] scale-[0.98]' : 'border-transparent opacity-60 hover:opacity-100 hover:scale-105'}`}>
+                                 <div key={`${c.id}-${index}`} onClick={() => toggleSelectCard(c.id)} className={`relative aspect-[63/88] rounded-lg overflow-hidden cursor-pointer transition-all duration-200 border ${selectedForOrder.includes(c.id) ? 'border-violet-500 shadow-[0_0_10px_rgba(139,92,246,0.5)] scale-[0.96]' : 'border-transparent opacity-80 hover:opacity-100'}`}>
                                      <img src={c.image} className="w-full h-full object-cover" loading="lazy" />
-                                     {selectedForOrder.includes(c.id) && <div className="absolute inset-0 bg-violet-600/40 backdrop-blur-[1px] flex items-center justify-center animate-in fade-in duration-200"><div className="bg-violet-600 rounded-full p-2 shadow-lg scale-110"><CheckCircle2 className="text-white" size={24} strokeWidth={3} /></div></div>}
+                                     {selectedForOrder.includes(c.id) && <div className="absolute inset-0 bg-violet-600/40 backdrop-blur-[1px] flex items-center justify-center animate-in fade-in duration-200"><div className="bg-violet-600 rounded-full p-1 shadow-lg"><CheckCircle2 className="text-white" size={16} strokeWidth={3} /></div></div>}
                                  </div>
                              ))}
                          </div>
-                     }
-                     {visibleCount < filteredCards.length && <div className="mt-8 text-center"><button onClick={handleLoadMore} className="text-slate-400 hover:text-white text-xs font-bold uppercase tracking-widest px-6 py-3 border border-white/5 rounded-full hover:bg-white/5 transition-all">Cargar más cartas...</button></div>}
+                     )}
+                     {visibleCount < filteredCards.length && <div className="mt-4 pb-20 text-center"><button onClick={handleLoadMore} className="text-slate-400 hover:text-white text-[10px] font-bold uppercase tracking-widest px-4 py-2 border border-white/5 rounded-full">Cargar más</button></div>}
                  </div>
-                 <div className="p-4 border-t border-white/5 bg-slate-900 flex justify-between items-center gap-4 z-20">
-                     <span className="text-slate-500 text-xs font-bold uppercase tracking-wider pl-2">{selectedForOrder.length} seleccionadas</span>
-                     <button onClick={() => setIsSelectorOpen(false)} className="bg-violet-600 hover:bg-violet-500 text-white px-8 py-3 rounded-xl font-bold text-sm shadow-lg shadow-violet-900/20 transition-all hover:scale-105 active:scale-95">Confirmar Selección</button>
+
+                 {/* FOOTER FIJO - CONFIRMAR SELECCIÓN */}
+                 <div className="p-4 border-t border-white/5 bg-slate-900 flex justify-between items-center gap-4 z-20 pb-8 md:pb-4">
+                     <span className="text-slate-500 text-[10px] font-bold uppercase tracking-wider">{selectedForOrder.length} seleccionadas</span>
+                     <button onClick={() => setIsSelectorOpen(false)} className="bg-violet-600 text-white px-6 py-3 rounded-xl font-bold text-xs uppercase tracking-widest shadow-lg shadow-violet-900/20 active:scale-95">Confirmar</button>
                  </div>
              </div>
         </div>

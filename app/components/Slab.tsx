@@ -13,7 +13,7 @@ export default function Slab({ slab, onClick, className = '' }: SlabProps) {
     const graderRaw = s.grader || s.grading_company || 'RAW'
     const g = String(graderRaw).toUpperCase()
     const gradeVal = s.grade || '-'
-    const certNumber = s.cert_number || '' // Recuperamos el certificado
+    const certNumber = s.cert_number || '' 
     
     const isTen = String(gradeVal).includes('10') 
 
@@ -38,7 +38,6 @@ export default function Slab({ slab, onClick, className = '' }: SlabProps) {
     return (
         <div 
             onClick={onClick}
-            // Mantenemos overflow-visible para las partículas
             className={`group relative w-full aspect-[3/4.2] rounded-[24px] cursor-pointer select-none transition-transform duration-500 hover:-translate-y-2 hover:scale-[1.02] ${className}`}
             style={{
                 background: '#050505',
@@ -63,17 +62,18 @@ export default function Slab({ slab, onClick, className = '' }: SlabProps) {
                      style={{ borderColor: isTen ? `${goldColor}60` : 'rgba(255,255,255,0.08)' }}></div>
                 
                 {/* --- HEADER (ETIQUETA) --- */}
-                <div className="h-[70px] w-full relative z-20 bg-gradient-to-b from-[#151515] to-[#0a0a0a] border-b border-white/5 flex items-center justify-between px-4">
+                {/* Ajustado: altura flexible con min-h para que en movil no se aplaste */}
+                <div className="min-h-[60px] sm:h-[70px] w-full relative z-20 bg-gradient-to-b from-[#151515] to-[#0a0a0a] border-b border-white/5 flex items-center justify-between px-2 sm:px-4 py-1">
                     <div className="absolute inset-0 opacity-20 mix-blend-overlay" style={{ backgroundImage: noiseBg }}></div>
                     
                     {/* IZQUIERDA: Info de la Carta + CERTIFICADO */}
-                    <div className="flex flex-col items-start justify-center max-w-[35%] z-10">
-                        <span className="text-[10px] font-bold text-slate-200 uppercase tracking-tight leading-tight line-clamp-1">{pokeName}</span>
-                        <span className="text-[7px] font-bold text-slate-500 tracking-wider uppercase mt-0.5 truncate w-full">{s.set_name || 'UNK'}</span>
+                    <div className="flex flex-col items-start justify-center max-w-[40%] z-10">
+                        {/* Ajuste de Texto: xs en movil, sm en desktop, line-clamp para evitar desbordes */}
+                        <span className="text-[9px] sm:text-[10px] font-bold text-slate-200 uppercase tracking-tight leading-tight line-clamp-2">{pokeName}</span>
+                        <span className="text-[6px] sm:text-[7px] font-bold text-slate-500 tracking-wider uppercase mt-0.5 truncate w-full">{s.set_name || 'UNK'}</span>
                         
-                        {/* AQUI MOSTRAMOS EL CERTIFICADO EN LA ETIQUETA */}
                         {certNumber && (
-                            <span className="text-[6px] font-mono text-slate-400 mt-1 tracking-widest opacity-70">
+                            <span className="text-[5px] sm:text-[6px] font-mono text-slate-400 mt-1 tracking-widest opacity-70">
                                 #{certNumber}
                             </span>
                         )}
@@ -81,7 +81,8 @@ export default function Slab({ slab, onClick, className = '' }: SlabProps) {
 
                     {/* CENTRO: Empresa */}
                     <div className="absolute left-1/2 -translate-x-1/2 top-1/2 -translate-y-1/2 flex flex-col items-center justify-center z-0">
-                        <span className="text-[20px] font-black tracking-[0.1em] uppercase drop-shadow-xl" 
+                        {/* Reducido texto en movil */}
+                        <span className="text-[16px] sm:text-[20px] font-black tracking-[0.1em] uppercase drop-shadow-xl" 
                               style={{ color: isTen ? 'white' : companyColor, textShadow: `0 0 15px ${companyGlow}` }}>
                             {graderRaw}
                         </span>
@@ -95,9 +96,11 @@ export default function Slab({ slab, onClick, className = '' }: SlabProps) {
                                 <Crown size={12} fill="#ffd700" strokeWidth={0} />
                             </div>
                         )}
-                        <div className={`flex items-center justify-center w-11 h-9 rounded-lg border backdrop-blur-md transition-all duration-500 ${isTen ? 'border-yellow-500/40' : 'border-white/10'}`}
+                        {/* Caja de nota: w-9 h-7 en movil | w-11 h-9 en PC */}
+                        <div className={`flex items-center justify-center w-9 h-7 sm:w-11 sm:h-9 rounded-lg border backdrop-blur-md transition-all duration-500 ${isTen ? 'border-yellow-500/40' : 'border-white/10'}`}
                              style={{ background: isTen ? `linear-gradient(135deg, ${goldColor}20, rgba(0,0,0,0.8))` : 'rgba(0,0,0,0.4)', boxShadow: isTen ? `inset 0 0 15px ${goldGlowTight}` : `0 0 10px -2px ${companyGlow}` }}>
-                            <span className="text-[22px] font-black leading-none drop-shadow-lg" 
+                            {/* Texto de nota: 18px en movil | 22px en PC */}
+                            <span className="text-[18px] sm:text-[22px] font-black leading-none drop-shadow-lg" 
                                 style={{ color: isTen ? goldColor : 'white', textShadow: isTen ? `0 2px 10px ${goldGlowTight}` : `0 0 10px ${companyColor}` }}>
                                 {gradeVal}
                             </span>
@@ -106,15 +109,17 @@ export default function Slab({ slab, onClick, className = '' }: SlabProps) {
                 </div>
 
                 {/* --- POZO DE LA CARTA --- */}
-                <div className="flex-1 relative w-full bg-[#030303] flex items-center justify-center p-3 overflow-hidden shadow-[inset_0_10px_30px_rgba(0,0,0,1)]">
+                <div className="flex-1 relative w-full bg-[#030303] flex items-center justify-center p-2 sm:p-3 overflow-hidden shadow-[inset_0_10px_30px_rgba(0,0,0,1)]">
                     <div className={`absolute inset-0 transition-opacity duration-700 ${isTen ? 'opacity-40 group-hover:opacity-60' : 'opacity-20 group-hover:opacity-40'}`}
                         style={{ background: `radial-gradient(circle at center, ${companyColor}, transparent 70%)`, filter: 'blur(25px)' }}
                     />
                     {imgUrl ? (
                         <div className="relative w-full h-full flex items-center justify-center z-20">
-                            <img src={imgUrl} className="h-full w-auto object-contain transition-transform duration-500 group-hover:scale-105" alt={pokeName} />
+                            {/* Ajuste de margen para que la carta no toque los bordes del pozo en movil */}
+                            <img src={imgUrl} className="h-[95%] w-auto object-contain transition-transform duration-500 group-hover:scale-105" alt={pokeName} />
                         </div>
                     ) : (<div className="opacity-10 text-white z-20"><Box size={40} /></div>)}
+                    
                     <div className="absolute inset-0 z-30 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none mix-blend-color-dodge"
                             style={{
                                 background: isTen 
