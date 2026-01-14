@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react'
 import { Crown, Map, Store, Pencil, Star } from 'lucide-react'
 
-// Estructura de datos del gimnasio
 interface GymData {
   name: string
   logo_url?: string | null
@@ -32,15 +31,19 @@ export default function ProfileHeader({
 }: ProfileHeaderProps) {
 
   const [imgError, setImgError] = useState(false)
-  
-  // Resetear error si cambia la URL (por si el usuario elige otro starter)
+  const [currentAvatar, setCurrentAvatar] = useState(avatarUrl)
+
   useEffect(() => { 
+      setCurrentAvatar(avatarUrl)
       setImgError(false) 
   }, [avatarUrl])
 
   const safeNextXp = nextLevelXp || 1
   const progress = Math.min((xp / safeNextXp) * 100, 100)
   const isPremium = subscriptionType === 'GYM' || subscriptionType === 'PRO'
+
+  // Decidimos qué mostrar: ¿Hay URL válida y no ha dado error?
+  const showImage = currentAvatar && currentAvatar.length > 0 && !imgError
 
   return (
     <div className="w-full flex flex-row items-center gap-4 sm:gap-6 md:gap-8 mb-8 sm:mb-10 animate-in fade-in slide-in-from-top-4 duration-700">
@@ -59,18 +62,19 @@ export default function ProfileHeader({
               <Pencil className="text-white" size={24} />
            </div>
 
-           {/* LÓGICA DE IMAGEN ROBUSTA: Si hay URL y NO hay error, muestra imagen. Si no, HUEVO. */}
-           {avatarUrl && !imgError ? (
-             <img 
-               src={avatarUrl} 
+           {/* SI LA IMAGEN ESTÁ BIEN, LA MOSTRAMOS. IMPORTANTE: EL ESTILO HIDDEN/BLOCK */}
+           <img 
+               src={currentAvatar || ''} 
                alt="Buddy" 
-               onError={() => setImgError(true)} // Si falla, activa el huevo
-               className="w-full h-full object-contain p-2 drop-shadow-xl pixelated rendering-pixelated group-hover:scale-110 transition-transform duration-500"
+               onError={() => setImgError(true)}
+               className={`w-full h-full object-contain p-2 drop-shadow-xl pixelated rendering-pixelated group-hover:scale-110 transition-transform duration-500 ${showImage ? 'block' : 'hidden'}`}
                style={{ imageRendering: 'pixelated' }} 
-             />
-           ) : (
-             <div className="flex flex-col items-center justify-center animate-bounce-slow">
-                <span className="text-4xl sm:text-5xl filter drop-shadow-lg">🥚</span>
+           />
+
+           {/* SI NO HAY IMAGEN O DIO ERROR, MOSTRAMOS EL HUEVO */}
+           {!showImage && (
+             <div className="flex flex-col items-center justify-center animate-bounce-slow w-full h-full">
+                <span className="text-4xl sm:text-5xl filter drop-shadow-lg leading-none">🥚</span>
              </div>
            )}
         </div>
@@ -82,37 +86,23 @@ export default function ProfileHeader({
 
       {/* 2. DATOS DEL JUGADOR */}
       <div className="flex-1 min-w-0 flex flex-col justify-center py-1">
-        
         <div className="flex flex-col lg:flex-row lg:items-center gap-y-1 gap-x-4 mb-2">
-            
             <h1 className="text-2xl sm:text-3xl md:text-5xl font-black italic tracking-tighter text-white uppercase leading-none truncate pr-2" style={{ textShadow: '0 2px 10px rgba(0,0,0,0.5)' }}>
               {username}
             </h1>
-
             {isPremium && (
                <div className="flex items-center gap-2 sm:gap-3 animate-in fade-in slide-in-from-left-4 duration-700 lg:pl-4 lg:border-l-2 lg:border-white/10 mt-1 lg:mt-0">
-                  
                   {gymData?.logo_url ? (
-                     <img 
-                        src={gymData.logo_url} 
-                        alt="Gym Logo" 
-                        className="w-8 h-8 object-contain bg-slate-900/50 rounded-lg border border-white/10 shrink-0" 
-                     />
+                     <img src={gymData.logo_url} alt="Gym" className="w-8 h-8 object-contain bg-slate-900/50 rounded-lg border border-white/10 shrink-0" />
                   ) : (
                      <div className="w-8 h-8 bg-amber-500/10 rounded-lg flex items-center justify-center border border-amber-500/20 shrink-0">
                         {subscriptionType === 'GYM' ? <Store size={14} className="text-amber-500" /> : <Crown size={14} className="text-amber-500" />}
                      </div>
                   )}
-
                   <div className="flex flex-col justify-center leading-tight min-w-0">
-                      <span className="text-amber-500 font-black uppercase tracking-widest text-[10px] sm:text-xs whitespace-nowrap drop-shadow-sm">
-                         USUARIO PRO
-                      </span>
-                      
+                      <span className="text-amber-500 font-black uppercase tracking-widest text-[10px] sm:text-xs whitespace-nowrap drop-shadow-sm">PRO</span>
                       <span className="text-slate-400 font-bold uppercase tracking-wider text-[9px] sm:text-[10px] truncate block max-w-[150px]">
-                         {subscriptionType === 'GYM' && gymData?.name 
-                            ? `POR ${gymData.name}` 
-                            : 'PREMIUM ACTIVA'}
+                         {subscriptionType === 'GYM' && gymData?.name ? gymData.name : 'PREMIUM'}
                       </span>
                   </div>
                </div>
@@ -121,8 +111,7 @@ export default function ProfileHeader({
 
         <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-2">
             <div className="px-2 sm:px-3 py-1 rounded-lg bg-violet-600/10 border border-violet-500/30 text-violet-300 flex items-center gap-1.5 text-[9px] sm:text-[10px] font-black tracking-widest uppercase shadow-lg shadow-violet-900/20 backdrop-blur-md">
-                <Crown size={12} />
-                {rankTitle}
+                <Crown size={12} /> {rankTitle}
             </div>
         </div>
 
@@ -132,10 +121,7 @@ export default function ProfileHeader({
                 <span>/ {nextLevelXp || 'MAX'}</span>
             </div>
             <div className="h-1.5 sm:h-2 w-full bg-slate-800/50 rounded-full overflow-hidden border border-white/5 shadow-inner">
-                <div 
-                    className={`h-full relative overflow-hidden transition-all duration-1000 ${isPremium ? 'bg-amber-500' : 'bg-gradient-to-r from-violet-600 to-fuchsia-500'}`}
-                    style={{ width: `${progress}%` }}
-                >
+                <div className={`h-full relative overflow-hidden transition-all duration-1000 ${isPremium ? 'bg-amber-500' : 'bg-gradient-to-r from-violet-600 to-fuchsia-500'}`} style={{ width: `${progress}%` }}>
                     <div className="absolute inset-0 bg-white/20 w-full animate-[shimmer_2s_infinite] skew-x-12"></div>
                 </div>
             </div>

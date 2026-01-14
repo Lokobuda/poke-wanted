@@ -8,7 +8,7 @@ import {
   CheckCircle2, X, Sparkles, ChevronDown, ChevronLeft, ChevronRight,
   Layers, BarChart3, Trophy, Target, Filter, Search, FolderOpen, 
   ShieldCheck, Package, Lock, 
-  Ticket, CreditCard, Zap, ArrowLeft, Copy
+  Ticket, CreditCard, Zap, ArrowLeft, Copy, CheckSquare
 } from 'lucide-react'
 import { toPng } from 'html-to-image'
 import download from 'downloadjs'
@@ -132,10 +132,26 @@ function ProfileContent() {
   const filteredCards = useMemo(() => { return missingCards.filter(card => { const matchSet = filterSet === 'ALL' || card.setId === filterSet; const matchRarity = filterRarity === 'ALL' || card.rarity === filterRarity; const matchAlbum = filterAlbum === 'ALL' || card.albumIds.includes(filterAlbum); const matchSearch = card.name.toLowerCase().includes(searchQuery.toLowerCase()) || card.setName.toLowerCase().includes(searchQuery.toLowerCase()); return matchSet && matchRarity && matchAlbum && matchSearch }) }, [missingCards, filterSet, filterRarity, filterAlbum, searchQuery])
   
   const toggleSelectCard = (id: string) => setSelectedForOrder(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id])
+  
+  // FUNCIÓN SELECCIONAR TODO
+  const handleSelectAllFiltered = () => {
+      const allIds = filteredCards.map(c => c.id)
+      const allSelected = allIds.every(id => selectedForOrder.includes(id))
+      
+      if (allSelected) {
+          setSelectedForOrder(prev => prev.filter(id => !allIds.includes(id)))
+      } else {
+          setSelectedForOrder(prev => {
+              const newSet = new Set([...prev, ...allIds])
+              return Array.from(newSet)
+          })
+      }
+  }
+
   const handleLoadMore = () => setVisibleCount(prev => prev + 50)
   const handleOpenPosterMode = () => { if (selectedForOrder.length === 0) return toast.warning("Selecciona al menos una carta."); setPosterPage(0); setIsPosterMode(true) }
   
-  // --- FUNCIÓN DE DESCARGA MEJORADA PARA IOS/SAFARI ---
+  // --- DESCARGA ARREGLADA (Sin error TS y con CORS) ---
   const handleInteractiveDownload = async (totalPages: number) => { 
     if (isDownloading) return; 
     setIsDownloading(true); 
@@ -146,18 +162,19 @@ function ProfileContent() {
         
         for (let i = 0; i < totalPages; i++) { 
             setPosterPage(i); 
-            // 1. ESPERA CRÍTICA: Damos 1.5s para que Safari pinte las imágenes
+            // Espera para renderizado
             await new Promise(resolve => setTimeout(resolve, 1500)); 
             
             const posterNode = document.getElementById('visible-poster'); 
             
             if (posterNode) { 
-                // 2. Configuración anti-pantalla blanca
                 const dataUrl = await toPng(posterNode, { 
                     quality: 0.95, 
-                    pixelRatio: 2, 
+                    pixelRatio: 1.5, 
                     cacheBust: true, 
-                    skipAutoScale: true
+                    skipAutoScale: true,
+                    backgroundColor: '#0a0a0a',
+                    // style: { ... } // useCORS eliminado para evitar error TS, usamos atributo img
                 }); 
                 
                 setFlashActive(true); 
@@ -165,7 +182,6 @@ function ProfileContent() {
                 
                 download(dataUrl, `pokebinders-wanted-${username}-page-${i + 1}.png`); 
                 
-                // 3. Pausa entre descargas
                 await new Promise(resolve => setTimeout(resolve, 800)); 
             } 
         } 
@@ -179,11 +195,10 @@ function ProfileContent() {
         
     } catch (error) { 
         console.error('Error:', error); 
-        toast.error('Error al generar imagen', { description: 'Inténtalo de nuevo, Safari a veces se pone tímido.' }); 
+        toast.error('Error al generar imagen', { description: 'Inténtalo de nuevo.' }); 
         setIsDownloading(false) 
     } 
   }
-  // -----------------------------------------------------
 
   const fetchProfileData = async (mounted: boolean = true) => {
     try {
@@ -208,14 +223,9 @@ function ProfileContent() {
               setGymData({ name: g.name, logo_url: g.logo_url }) 
           }
           if (profile.gym_id) {
-              const { data: offers } = await supabase
-                .from('gym_offers')
-                .select('*')
-                .eq('gym_id', profile.gym_id)
-                .eq('is_active', true)
+              const { data: offers } = await supabase.from('gym_offers').select('*').eq('gym_id', profile.gym_id).eq('is_active', true)
               if (offers) setGymOffers(offers)
           }
-
         } else if (profile.subscription_status === 'PRO') { 
             currentStatus = 'PRO'; 
         }
@@ -344,7 +354,12 @@ function ProfileContent() {
         </div>
         <div className="flex-1 min-h-0 px-6 py-2 flex items-center justify-center z-10">
             <div className="grid grid-cols-3 gap-3 w-full h-full max-h-full">
-                {cards.map((card:any) => (<div key={card.id} className="relative aspect-[0.716] rounded-lg overflow-hidden shadow-lg border border-white/10 group bg-slate-900"><img src={card.image} className="w-full h-full object-cover" /></div>))}
+                {cards.map((card:any) => (
+                    <div key={card.id} className="relative aspect-[0.716] rounded-lg overflow-hidden shadow-lg border border-white/10 group bg-slate-900">
+                        {/* ESTA ES LA CLAVE: crossOrigin="anonymous" */}
+                        <img src={card.image} className="w-full h-full object-cover" crossOrigin="anonymous" />
+                    </div>
+                ))}
                 {[...Array(Math.max(0, 9 - cards.length))].map((_, i) => (<div key={`empty-${i}`} className="relative aspect-[0.716] rounded-lg border border-dashed border-white/10 bg-white/5 flex flex-col items-center justify-center opacity-50"><Target size={10} className="text-white/30" /></div>))}
             </div>
         </div>
@@ -359,12 +374,34 @@ function ProfileContent() {
      const selectedCardsList = missingCards.filter(c => selectedForOrder.includes(c.id)); const CARDS_PER_PAGE = 9; const totalPages = Math.ceil(selectedCardsList.length / CARDS_PER_PAGE); const currentCards = selectedCardsList.slice(posterPage * CARDS_PER_PAGE, (posterPage + 1) * CARDS_PER_PAGE);
      return (
         <div className="fixed inset-0 z-[200] bg-black/95 flex items-center justify-center p-4 backdrop-blur-sm">
-            <div className="absolute top-0 inset-x-0 p-6 flex justify-between items-center z-50 pointer-events-none">
-                <button onClick={() => setIsPosterMode(false)} disabled={isDownloading} className="pointer-events-auto text-white/70 hover:text-white flex items-center gap-2 font-bold uppercase text-xs tracking-widest bg-white/10 px-4 py-2 rounded-full backdrop-blur-md transition-colors"><ArrowLeft size={16} /> Editar</button>
-                {totalPages > 1 && (<div className="pointer-events-auto flex items-center gap-4 bg-black/50 backdrop-blur-md px-4 py-2 rounded-full border border-white/10 animate-in fade-in zoom-in"><button onClick={() => setPosterPage(p => Math.max(0, p - 1))} disabled={posterPage === 0 || isDownloading} className="p-1 hover:text-violet-400 disabled:opacity-30 transition-colors"><ChevronLeft size={20} /></button><span className="text-xs font-bold font-mono text-white min-w-[40px] text-center">{posterPage + 1}/{totalPages}</span><button onClick={() => setPosterPage(p => Math.min(totalPages - 1, p + 1))} disabled={posterPage === totalPages - 1 || isDownloading} className="p-1 hover:text-violet-400 disabled:opacity-30 transition-colors"><ChevronRight size={20} /></button></div>)}
-                <button onClick={() => handleInteractiveDownload(totalPages)} disabled={isDownloading || downloadSuccess} className={`pointer-events-auto px-6 py-2 rounded-full font-black text-xs uppercase tracking-widest flex items-center gap-2 transition-all shadow-lg ${downloadSuccess ? 'bg-emerald-500' : 'bg-violet-600 hover:bg-violet-500'}`}>{downloadSuccess ? '¡Guardado!' : 'Guardar Todo'}</button>
+            
+            {/* VISTA PREVIA DEL PÓSTER */}
+            <div className="flex items-center gap-4 md:gap-8 max-h-screen py-12 pb-32">
+                <div id="visible-poster-container" className={`transition-transform duration-500 origin-center ${isDownloading ? 'scale-100' : 'scale-[0.85] md:scale-100'}`}>
+                    <PosterTemplate cards={currentCards} pageIndex={posterPage} totalPages={totalPages} />
+                </div>
             </div>
-            <div className="flex items-center gap-4 md:gap-8 max-h-screen py-12"><div id="visible-poster-container" className={`transition-transform duration-500 origin-center ${isDownloading ? 'scale-100' : 'scale-[0.85] md:scale-100'}`}><PosterTemplate cards={currentCards} pageIndex={posterPage} totalPages={totalPages} /></div></div>
+
+            {/* CONTROLES FLOTANTES ABAJO - VISIBLES EN IPHONE */}
+            <div className="absolute bottom-0 left-0 right-0 p-6 pb-8 bg-black/80 backdrop-blur-xl border-t border-white/10 flex flex-col gap-4 z-50">
+                
+                {totalPages > 1 && (
+                    <div className="flex items-center justify-center gap-6 text-white mb-2">
+                        <button onClick={() => setPosterPage(p => Math.max(0, p - 1))} disabled={posterPage === 0 || isDownloading} className="p-2 bg-white/10 rounded-full hover:bg-white/20 disabled:opacity-30"><ChevronLeft size={24} /></button>
+                        <span className="font-mono font-bold text-sm">PÁGINA {posterPage + 1} / {totalPages}</span>
+                        <button onClick={() => setPosterPage(p => Math.min(totalPages - 1, p + 1))} disabled={posterPage === totalPages - 1 || isDownloading} className="p-2 bg-white/10 rounded-full hover:bg-white/20 disabled:opacity-30"><ChevronRight size={24} /></button>
+                    </div>
+                )}
+
+                <div className="flex gap-4">
+                    <button onClick={() => setIsPosterMode(false)} disabled={isDownloading} className="flex-1 py-4 rounded-xl font-bold uppercase tracking-widest text-xs bg-white/10 text-white hover:bg-white/20 transition-all">
+                        Volver
+                    </button>
+                    <button onClick={() => handleInteractiveDownload(totalPages)} disabled={isDownloading || downloadSuccess} className={`flex-[2] py-4 rounded-xl font-black uppercase tracking-widest text-xs flex items-center justify-center gap-2 transition-all shadow-lg ${downloadSuccess ? 'bg-emerald-500 text-white' : 'bg-violet-600 text-white hover:bg-violet-500'}`}>
+                        {isDownloading ? <Loader2 className="animate-spin" /> : (downloadSuccess ? '¡Guardado!' : 'Descargar Póster')}
+                    </button>
+                </div>
+            </div>
         </div>
      )
   }
@@ -521,7 +558,7 @@ function ProfileContent() {
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-2 md:gap-4">
                         <div className="relative">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={14} />
-                            <input type="text" placeholder="Buscar..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full bg-slate-950 border border-white/10 rounded-lg py-2 pl-9 pr-3 text-xs text-white focus:outline-none focus:border-violet-500"/>
+                            <input type="text" placeholder="Buscar..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full bg-slate-900 border border-white/10 rounded-lg py-2 pl-9 pr-3 text-xs text-white focus:outline-none focus:border-violet-500"/>
                         </div>
                         <div className="relative">
                             <select value={filterAlbum} onChange={(e) => setFilterAlbum(e.target.value)} className="w-full appearance-none bg-slate-950 border border-white/10 rounded-lg py-2 pl-3 pr-8 text-xs text-white focus:outline-none focus:border-violet-500"><option value="ALL">Álbumes</option>{stats.projectsProgress.map(album => !album.isVault && !album.isSealed && (<option key={album.id} value={album.id}>{album.name}</option>))}</select>
@@ -531,12 +568,14 @@ function ProfileContent() {
                             <select value={filterSet} onChange={(e) => setFilterSet(e.target.value)} className="w-full appearance-none bg-slate-950 border border-white/10 rounded-lg py-2 pl-3 pr-8 text-xs text-white focus:outline-none focus:border-violet-500"><option value="ALL">Sets</option>{uniqueSets.map(set => (<option key={set.id} value={set.id}>{set.name}</option>))}</select>
                             <Filter className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" size={12} />
                         </div>
+                        {/* BOTÓN SELECCIONAR TODO */}
                         <div className="relative">
-                            <select value={filterRarity} onChange={(e) => setFilterRarity(e.target.value)} className="w-full appearance-none bg-slate-950 border border-white/10 rounded-lg py-2 pl-3 pr-8 text-xs text-white focus:outline-none focus:border-violet-500"><option value="ALL">Rarezas</option>{uniqueRarities.map(r => (<option key={r} value={r}>{RARITY_TRANSLATIONS[r] || r}</option>))}</select>
-                            <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" size={12} />
+                            <button onClick={handleSelectAllFiltered} className="w-full h-full bg-violet-600/10 hover:bg-violet-600/20 text-violet-400 border border-violet-500/30 rounded-lg py-2 px-3 text-xs font-bold uppercase tracking-wide flex items-center justify-center gap-2">
+                                <CheckSquare size={14} /> Seleccionar Todo
+                            </button>
                         </div>
                     </div>
-                 </div>
+                </div>
 
                  <div className="flex-1 overflow-y-auto p-4 bg-slate-950/30">
                      {filteredCards.length === 0 ? (
@@ -553,6 +592,15 @@ function ProfileContent() {
                                  </div>
                              ))}
                          </div>
+                     )}
+                     
+                     {/* BOTÓN CARGAR MÁS */}
+                     {visibleCount < filteredCards.length && (
+                        <div className="mt-6 mb-32 text-center">
+                            <button onClick={handleLoadMore} className="text-slate-400 hover:text-white text-[10px] font-bold uppercase tracking-widest px-6 py-3 border border-white/5 rounded-full hover:bg-white/5 transition-all">
+                                Cargar más cartas ({filteredCards.length - visibleCount} restantes)
+                            </button>
+                        </div>
                      )}
                      <div className="h-32 w-full" />
                  </div>
