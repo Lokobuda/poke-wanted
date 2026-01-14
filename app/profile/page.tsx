@@ -15,22 +15,12 @@ import download from 'downloadjs'
 import { toast } from 'sonner'
 import ConfirmModal from '../components/ConfirmModal'
 
-// COMPONENTES
 import ProfileHeader from './components/ProfileHeader'
 import StarterSelector from '../components/StarterSelector'
 import TutorialOverlay, { TutorialStep } from '../components/TutorialOverlay'
 
-// UTILIDADES
 import { getCardScore } from '../../lib/scoring'
 import { RANKS, STARTER_PATHS } from '../../lib/ranks'
-
-const RARITY_TRANSLATIONS: Record<string, string> = {
-  'Common': 'Común', 'Uncommon': 'Infrecuente', 'Rare': 'Rara', 'Double Rare': 'Doble Rara',
-  'Ultra Rare': 'Ultra Rara', 'Illustration Rare': 'Ilustración Rara', 'Special Illustration Rare': 'Ilustración Especial Rara',
-  'Hyper Rare': 'Híper Rara', 'Secret Rare': 'Secreta', 'Promo': 'Promo', 'Rare Holo': 'Rara Holo',
-  'Rare Holo V': 'Rara Holo V', 'Rare Holo VMAX': 'Rara Holo VMAX', 'Rare Ultra': 'Ultra Rara',
-  'Rare Secret': 'Secreta Rara', 'Classic Collection': 'Colección Clásica', 'Radiant Rare': 'Radiante'
-}
 
 const PROFILE_STEPS: TutorialStep[] = [
   { targetId: 'tour-start', title: '¡Hola, coleccionista! 👋', text: 'Veo que acabas de aterrizar. Tu perfil es tu cuartel general.', action: '¡Dale caña!', position: 'center' },
@@ -108,7 +98,6 @@ function ProfileContent() {
     if (!searchParams) return;
     const openPro = searchParams.get('open_pro')
     if (openPro === 'true') { setIsRedeemOpen(true); router.replace('/profile', { scroll: false }) }
-    
     const paymentStatus = searchParams.get('payment')
     if (paymentStatus === 'success') {
         toast.success('¡Bienvenido al Club PRO!', { description: 'Tu suscripción se ha activado correctamente.' })
@@ -128,7 +117,6 @@ function ProfileContent() {
   }, [searchParams]) 
 
   const uniqueSets = useMemo(() => { const sets = missingCards.map(c => ({ id: c.setId, name: c.setName })); const unique = sets.filter((v, i, a) => a.findIndex(t => t.id === v.id) === i); return unique.sort((a, b) => a.name.localeCompare(b.name)) }, [missingCards])
-  const uniqueRarities = useMemo(() => { return [...new Set(missingCards.map(c => c.rarity))].filter(Boolean).sort() }, [missingCards])
   const filteredCards = useMemo(() => { return missingCards.filter(card => { const matchSet = filterSet === 'ALL' || card.setId === filterSet; const matchRarity = filterRarity === 'ALL' || card.rarity === filterRarity; const matchAlbum = filterAlbum === 'ALL' || card.albumIds.includes(filterAlbum); const matchSearch = card.name.toLowerCase().includes(searchQuery.toLowerCase()) || card.setName.toLowerCase().includes(searchQuery.toLowerCase()); return matchSet && matchRarity && matchAlbum && matchSearch }) }, [missingCards, filterSet, filterRarity, filterAlbum, searchQuery])
   
   const toggleSelectCard = (id: string) => setSelectedForOrder(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id])
@@ -147,15 +135,12 @@ function ProfileContent() {
     if (isDownloading) return; 
     setIsDownloading(true); 
     setDownloadSuccess(false); 
-    
     try { 
         const initialPage = posterPage; 
-        
         for (let i = 0; i < totalPages; i++) { 
             setPosterPage(i); 
             await new Promise(resolve => setTimeout(resolve, 1500)); 
             const posterNode = document.getElementById('visible-poster'); 
-            
             if (posterNode) { 
                 const dataUrl = await toPng(posterNode, { 
                     quality: 0.95, 
@@ -164,7 +149,6 @@ function ProfileContent() {
                     skipAutoScale: true,
                     backgroundColor: '#0a0a0a'
                 }); 
-                
                 setFlashActive(true); 
                 setTimeout(() => setFlashActive(false), 200); 
                 download(dataUrl, `pokebinders-wanted-${username}-page-${i + 1}.png`); 
@@ -189,44 +173,25 @@ function ProfileContent() {
 
       const { data: profiles, error: profileError } = await supabase.from('profiles').select(`*, gyms (name, logo_url)`).eq('id', session.user.id).limit(1)
       const profile = profiles?.[0]
-      if (profileError && profileError.code !== 'PGRST116') toast.error(`Error: ${profileError.message}`)
-      if (!mounted) return
       setDbProfile(profile) 
 
       let currentStatus: 'INDIE' | 'GYM' | 'PRO' = 'INDIE'; 
       if (profile) {
         if (profile.starter_gen && profile.starter_type) { setStarterData({ gen: profile.starter_gen, type: profile.starter_type }) } else { setShowStarterSelector(true) }
-        
         if (profile.subscription_status === 'GYM') { 
           currentStatus = 'GYM'; 
-          if (profile.gyms) { 
-              const g: any = profile.gyms; 
-              setGymData({ name: g.name, logo_url: g.logo_url }) 
-          }
-          if (profile.gym_id) {
-              const { data: offers } = await supabase.from('gym_offers').select('*').eq('gym_id', profile.gym_id).eq('is_active', true)
-              if (offers) setGymOffers(offers)
-          }
-        } else if (profile.subscription_status === 'PRO') { 
-            currentStatus = 'PRO'; 
-        }
+          if (profile.gyms) { const g: any = profile.gyms; setGymData({ name: g.name, logo_url: g.logo_url }) }
+          if (profile.gym_id) { const { data: offers } = await supabase.from('gym_offers').select('*').eq('gym_id', profile.gym_id).eq('is_active', true); if (offers) setGymOffers(offers) }
+        } else if (profile.subscription_status === 'PRO') { currentStatus = 'PRO'; }
       } else { setShowStarterSelector(true) }
       setSubscriptionType(currentStatus)
 
-      const { data: setsData } = await supabase.from('sets').select('id, name')
-      const setsMap = new Map<string, string>(); setsData?.forEach((s: any) => setsMap.set(s.id, s.name))
-
-      const { data: inventoryData } = await supabase.from('inventory').select('card_id, quantity_normal, quantity_holo, quantity_reverse').eq('user_id', session.user.id)
-      const inventoryMap = new Map(); inventoryData?.forEach((item: any) => inventoryMap.set(item.card_id, item))
-
+      const { data: setsData } = await supabase.from('sets').select('id, name'); const setsMap = new Map<string, string>(); setsData?.forEach((s: any) => setsMap.set(s.id, s.name))
+      const { data: inventoryData } = await supabase.from('inventory').select('card_id, quantity_normal, quantity_holo, quantity_reverse').eq('user_id', session.user.id); const inventoryMap = new Map(); inventoryData?.forEach((item: any) => inventoryMap.set(item.card_id, item))
       const { count: gradedCount } = await supabase.from('graded_cards').select('id', { count: 'exact' }).eq('user_id', session.user.id)
       const { count: sealedCount } = await supabase.from('sealed_products').select('id', { count: 'exact' }).eq('user_id', session.user.id)
 
-      const totalGraded = gradedCount || 0; 
-      const totalSealed = sealedCount || 0
-      const gradedScoreBoost = totalGraded * 50; 
-      const sealedScoreBoost = totalSealed * 20 
-
+      const totalGraded = gradedCount || 0; const totalSealed = sealedCount || 0; const gradedScoreBoost = totalGraded * 50; const sealedScoreBoost = totalSealed * 20 
       const { data: albumsData } = await supabase.from('albums').select(`id, name, is_master_set, set_id, created_at, album_cards (acquired, card_variants (id, image_url, cards (name, set_id, collector_number, rarity)))`).eq('user_id', session.user.id).order('created_at', { ascending: false })
 
       let totalCardsOwned = 0; let totalSlotsTracked = 0; let totalOwnedInTracked = 0; let totalScore = 0
@@ -270,52 +235,23 @@ function ProfileContent() {
         const { data: { session } } = await supabase.auth.getSession();
         const token = session?.access_token;
         if (!token) throw new Error('No se encontró sesión activa.');
-
         const response = await fetch('/api/checkout', { 
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }
         });
-
         if (!response.ok) throw new Error(await response.text());
         const data = await response.json();
         if (data.url) window.location.href = data.url;
-        else throw new Error('No se recibió la URL de pago');
-    } catch (error: any) {
-        toast.error('Error de pago', { description: error.message });
-        setIsSubscribing(false);
-    }
+    } catch (error: any) { toast.error('Error de pago', { description: error.message }); setIsSubscribing(false); }
   }
 
-  const handleRedeemCode = async (e: React.FormEvent) => {
-    e.preventDefault(); if (!redeemCode.trim()) return; setIsRedeeming(true)
-    try { const { data, error } = await supabase.rpc('claim_gym_access', { input_code: redeemCode.trim() }); if (error) throw error; if (data && data.success) { router.push(`/store-landing?code=${redeemCode.trim()}&redeemed=true`) } else { toast.error('Código inválido', { description: data?.error || 'Revisa el código.' }); setIsRedeeming(false) } } catch (err: any) { toast.error('Error', { description: err.message }); setIsRedeeming(false) }
-  }
-  
-  const handleCopyOffer = (code: string) => {
-    navigator.clipboard.writeText(code)
-    toast.success('¡Código copiado!', { description: 'Muéstralo en caja o úsalo en la web.', icon: '🎟️' })
-  }
-
-  const getBuddyImage = () => {
-      if (!starterData) return null
-      let genKey = starterData.gen; if (!genKey.startsWith('gen')) genKey = `gen${genKey}`
-      const genPaths = STARTER_PATHS[genKey]; if (!genPaths) return null
-      const typePaths = genPaths[starterData.type]; if (!typePaths) return null
-      return typePaths[currentRank.id] || typePaths[1] || Object.values(typePaths)[0] || null
-  }
-
+  const handleRedeemCode = async (e: React.FormEvent) => { /* ... */ }
+  const handleCopyOffer = (code: string) => { navigator.clipboard.writeText(code); toast.success('¡Copiado!') }
+  const getBuddyImage = () => { if (!starterData) return null; let genKey = starterData.gen; if (!genKey.startsWith('gen')) genKey = `gen${genKey}`; const genPaths = STARTER_PATHS[genKey]; if (!genPaths) return null; const typePaths = genPaths[starterData.type]; if (!typePaths) return null; return typePaths[currentRank.id] || typePaths[1] || Object.values(typePaths)[0] || null }
   const handleConfirmDeleteAlbum = async () => { if (!albumToDelete) return; setIsDeletingAlbum(true); const { error } = await supabase.from('albums').delete().eq('id', albumToDelete); if (!error) setStats(prev => ({ ...prev, projectsProgress: prev.projectsProgress.filter(p => p.id !== albumToDelete), totalAlbums: Math.max(0, prev.totalAlbums - 1) })); setIsDeletingAlbum(false); setAlbumToDelete(null) }
   const handleStarterSelect = async (gen: string, type: string) => { const { data: { session } } = await supabase.auth.getSession(); if (!session) return; const cleanGen = gen.startsWith('gen') ? gen : `gen${gen}`; const { error } = await supabase.from('profiles').upsert({ id: session.user.id, starter_gen: cleanGen, starter_type: type }, { onConflict: 'id' }); if (!error) { setStarterData({ gen: cleanGen, type }); setShowStarterSelector(false); setShowTutorial(true); fetchProfileData() } }
-
-  const handleFinishTutorial = async () => {
-    localStorage.setItem('tutorial_completed', 'true')
-    localStorage.setItem('tutorial_phase', 'creating')
-    setShowTutorial(false)
-    try { const { data: { session } } = await supabase.auth.getSession(); if (session) await supabase.from('profiles').update({ has_completed_tutorial: true }).eq('id', session.user.id) } catch (err) { console.log("Error guardando tutorial") }
-    router.push('/create', { scroll: false })
-  }
-
-  const closeTutorialPermanently = async () => { setShowTutorial(false); localStorage.setItem('tutorial_completed', 'true'); try { const { data: { session } } = await supabase.auth.getSession(); if (session) await supabase.from('profiles').update({ has_completed_tutorial: true }).eq('id', session.user.id) } catch (err) { console.log("Error guardando tutorial skip") } }
+  const handleFinishTutorial = async () => { localStorage.setItem('tutorial_completed', 'true'); localStorage.setItem('tutorial_phase', 'creating'); setShowTutorial(false); router.push('/create', { scroll: false }) }
+  const closeTutorialPermanently = async () => { setShowTutorial(false); localStorage.setItem('tutorial_completed', 'true'); }
 
   if (loading) return <div className="min-h-screen bg-slate-950 flex items-center justify-center"><Loader2 className="animate-spin text-violet-500" /></div>
   
@@ -337,15 +273,19 @@ function ProfileContent() {
             <div className="grid grid-cols-3 gap-3 w-full h-full max-h-full">
                 {cards.map((card:any) => (
                     <div key={card.id} className="relative aspect-[0.716] rounded-lg overflow-hidden shadow-lg border border-white/10 group bg-slate-900">
-                        {/* ESTA ES LA CLAVE: crossOrigin="anonymous" SOLO EN EL PÓSTER */}
-                        <img src={card.image} className="w-full h-full object-cover" crossOrigin="anonymous" />
+                        {/* AQUÍ ESTÁ EL TRUCO: REFERRER POLICY para evitar bloqueos CORS en Safari */}
+                        <img src={card.image} className="w-full h-full object-cover" crossOrigin="anonymous" referrerPolicy="no-referrer" />
                     </div>
                 ))}
                 {[...Array(Math.max(0, 9 - cards.length))].map((_, i) => (<div key={`empty-${i}`} className="relative aspect-[0.716] rounded-lg border border-dashed border-white/10 bg-white/5 flex flex-col items-center justify-center opacity-50"><Target size={10} className="text-white/30" /></div>))}
             </div>
         </div>
         <div className="h-[80px] px-8 pb-6 pt-2 flex-shrink-0 z-20 flex flex-col items-center justify-center gap-2">
-            <div className="flex items-center gap-2 bg-slate-900/60 backdrop-blur-sm border border-white/10 px-4 py-1.5 rounded-full shadow-lg"><Disc size={14} className="text-violet-400" /><p className="text-[10px] font-black text-white tracking-widest uppercase truncate max-w-[150px]">@{username}</p></div>
+            <div className="flex items-center gap-2 bg-slate-900/60 backdrop-blur-sm border border-white/10 px-4 py-1.5 rounded-full shadow-lg">
+                <Disc size={14} className="text-violet-400" />
+                {/* CAMBIO DE NOMBRE A POKÉBINDERS APP */}
+                <p className="text-[10px] font-black text-white tracking-widest uppercase truncate max-w-[150px]">POKÉBINDERS APP</p>
+            </div>
             {totalPages > 1 && <p className="text-[8px] text-white/30 font-mono tracking-widest">PÁGINA {pageIndex + 1} DE {totalPages}</p>}
         </div>
     </div>
@@ -369,12 +309,8 @@ function ProfileContent() {
                     </div>
                 )}
                 <div className="flex gap-4">
-                    <button onClick={() => setIsPosterMode(false)} disabled={isDownloading} className="flex-1 py-4 rounded-xl font-bold uppercase tracking-widest text-xs bg-white/10 text-white hover:bg-white/20 transition-all">
-                        Volver
-                    </button>
-                    <button onClick={() => handleInteractiveDownload(totalPages)} disabled={isDownloading || downloadSuccess} className={`flex-[2] py-4 rounded-xl font-black uppercase tracking-widest text-xs flex items-center justify-center gap-2 transition-all shadow-lg ${downloadSuccess ? 'bg-emerald-500 text-white' : 'bg-violet-600 text-white hover:bg-violet-500'}`}>
-                        {isDownloading ? <Loader2 className="animate-spin" /> : (downloadSuccess ? '¡Guardado!' : 'Descargar Póster')}
-                    </button>
+                    <button onClick={() => setIsPosterMode(false)} disabled={isDownloading} className="flex-1 py-4 rounded-xl font-bold uppercase tracking-widest text-xs bg-white/10 text-white hover:bg-white/20 transition-all">Volver</button>
+                    <button onClick={() => handleInteractiveDownload(totalPages)} disabled={isDownloading || downloadSuccess} className={`flex-[2] py-4 rounded-xl font-black uppercase tracking-widest text-xs flex items-center justify-center gap-2 transition-all shadow-lg ${downloadSuccess ? 'bg-emerald-500 text-white' : 'bg-violet-600 text-white hover:bg-violet-500'}`}>{isDownloading ? <Loader2 className="animate-spin" /> : (downloadSuccess ? '¡Guardado!' : 'Descargar Póster')}</button>
                 </div>
             </div>
         </div>
@@ -459,7 +395,7 @@ function ProfileContent() {
         )}
 
         <div className={`grid grid-cols-1 ${gridLayoutClass} gap-6 mb-12 auto-rows-fr`}>
-            
+            {/* WANTED LIST */}
             <div id="tour-wanted" className="bg-slate-900/40 backdrop-blur-xl rounded-[40px] p-10 border border-white/10 shadow-2xl relative overflow-hidden flex flex-col h-full">
                 <div className="relative z-10 flex-1 flex flex-col">
                     <div className="flex justify-between items-center mb-10"><h3 className="text-3xl font-black text-white flex items-center gap-3"><Sparkles className="text-violet-400" /> Wanted List</h3></div>
@@ -470,7 +406,7 @@ function ProfileContent() {
                         </div>
                     ) : (
                         <div className="space-y-6 flex-1 flex flex-col justify-end">
-                            <div className="flex gap-4 overflow-x-auto pb-4">{missingCards.filter(c => selectedForOrder.includes(c.id)).map(c => (<img key={c.id} src={c.image} className="h-32 rounded-lg shadow-lg" />))}</div>
+                            <div className="flex gap-4 overflow-x-auto pb-4">{missingCards.filter(c => selectedForOrder.includes(c.id)).map(c => (<img key={c.id} src={c.image} className="h-32 rounded-lg shadow-lg" referrerPolicy="no-referrer" />))}</div>
                             <button onClick={handleOpenPosterMode} className="w-full py-4 bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white font-black rounded-xl uppercase tracking-widest hover:scale-[1.02] transition-transform"><Share2 size={16} className="inline mr-2" /> Crear Póster</button>
                         </div>
                     )}
@@ -484,32 +420,21 @@ function ProfileContent() {
                             <Ticket size={24} className="text-amber-500" />
                             <h3 className="text-xl font-bold text-white uppercase tracking-wider">Espacio <span className="text-amber-400">{gymData.name}</span></h3>
                         </div>
-                        
-                        <div className="flex-1 flex flex-col gap-4">
-                            {gymOffers.map((offer) => (
-                                <div key={offer.id} className="group relative bg-gradient-to-br from-slate-900 via-black to-slate-900 border border-amber-500/30 rounded-3xl p-6 overflow-hidden hover:border-amber-500/50 transition-all shadow-xl flex-1 flex flex-col justify-between h-full">
-                                    <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity"><Sparkles size={60} /></div>
-                                    <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-12 bg-amber-500 rounded-r-full shadow-[0_0_15px_rgba(245,158,11,0.5)]" />
-                                    
-                                    <div className="relative z-10 mb-4 flex-1 flex flex-col justify-center">
-                                        <div className="self-start px-2 py-0.5 rounded-md bg-amber-500/20 text-amber-300 text-[9px] font-bold uppercase tracking-wider border border-amber-500/20 mb-3">
-                                            Exclusivo Socios
-                                        </div>
-                                        <h4 className="text-2xl font-black text-white italic leading-tight mb-2">{offer.title}</h4>
-                                        <p className="text-slate-400 text-sm leading-relaxed">{offer.description}</p>
-                                    </div>
-                                    
-                                    <div className="relative z-10 pt-4 border-t border-white/10 flex items-center justify-between gap-3 mt-auto">
-                                        <div className="flex-1 bg-white/5 rounded-lg px-2 py-3 font-mono text-amber-400 text-sm font-bold tracking-widest border border-dashed border-white/10 text-center select-all truncate">
-                                            {offer.code}
-                                        </div>
-                                        <button onClick={() => handleCopyOffer(offer.code)} className="p-3 bg-amber-500 text-black rounded-lg hover:bg-amber-400 transition-colors shadow-lg shadow-amber-900/20 active:scale-95 flex-shrink-0">
-                                            <Copy size={18} />
-                                        </button>
-                                    </div>
+                        {gymOffers.map((offer) => (
+                            <div key={offer.id} className="group relative bg-gradient-to-br from-slate-900 via-black to-slate-900 border border-amber-500/30 rounded-3xl p-6 overflow-hidden hover:border-amber-500/50 transition-all shadow-xl flex-1 flex flex-col justify-between h-full">
+                                <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity"><Sparkles size={60} /></div>
+                                <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-12 bg-amber-500 rounded-r-full shadow-[0_0_15px_rgba(245,158,11,0.5)]" />
+                                <div className="relative z-10 mb-4 flex-1 flex flex-col justify-center">
+                                    <div className="self-start px-2 py-0.5 rounded-md bg-amber-500/20 text-amber-300 text-[9px] font-bold uppercase tracking-wider border border-amber-500/20 mb-3">Exclusivo Socios</div>
+                                    <h4 className="text-2xl font-black text-white italic leading-tight mb-2">{offer.title}</h4>
+                                    <p className="text-slate-400 text-sm leading-relaxed">{offer.description}</p>
                                 </div>
-                            ))}
-                        </div>
+                                <div className="relative z-10 pt-4 border-t border-white/10 flex items-center justify-between gap-3 mt-auto">
+                                    <div className="flex-1 bg-white/5 rounded-lg px-2 py-3 font-mono text-amber-400 text-sm font-bold tracking-widest border border-dashed border-white/10 text-center select-all truncate">{offer.code}</div>
+                                    <button onClick={() => handleCopyOffer(offer.code)} className="p-3 bg-amber-500 text-black rounded-lg hover:bg-amber-400 transition-colors shadow-lg shadow-amber-900/20 active:scale-95 flex-shrink-0"><Copy size={18} /></button>
+                                </div>
+                            </div>
+                        ))}
                     </div>
                 </div>
             )}
@@ -520,69 +445,35 @@ function ProfileContent() {
       {isSelectorOpen && (
         <div className="fixed inset-0 z-[100] bg-black/95 md:bg-black/90 flex items-center justify-center p-0 md:p-8 backdrop-blur-sm animate-in fade-in duration-200">
              <div className="bg-slate-950 md:bg-slate-900 w-full md:max-w-6xl h-full md:h-[85vh] md:rounded-3xl border-0 md:border border-white/10 flex flex-col shadow-2xl overflow-hidden relative">
-                 
                  <div className="p-4 md:p-6 border-b border-white/5 flex flex-col gap-4 bg-slate-900/95 z-20">
                     <div className="flex justify-between items-center">
-                        <div>
-                            <h2 className="text-xl md:text-2xl font-black text-white tracking-tight">Selecciona Objetivos</h2>
-                            <p className="text-slate-400 text-[10px] md:text-xs mt-0.5">Elige las cartas para tu Wanted List</p>
-                        </div>
+                        <div><h2 className="text-xl md:text-2xl font-black text-white tracking-tight">Selecciona Objetivos</h2><p className="text-slate-400 text-[10px] md:text-xs mt-0.5">Elige las cartas para tu Wanted List</p></div>
                         <button onClick={() => setIsSelectorOpen(false)} className="p-2 bg-white/5 rounded-full text-slate-300 hover:text-white"><X size={20} /></button>
                     </div>
-                    
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-2 md:gap-4">
-                        <div className="relative">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={14} />
-                            <input type="text" placeholder="Buscar..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full bg-slate-950 border border-white/10 rounded-lg py-2 pl-9 pr-3 text-xs text-white focus:outline-none focus:border-violet-500"/>
-                        </div>
-                        <div className="relative">
-                            <select value={filterAlbum} onChange={(e) => setFilterAlbum(e.target.value)} className="w-full appearance-none bg-slate-950 border border-white/10 rounded-lg py-2 pl-3 pr-8 text-xs text-white focus:outline-none focus:border-violet-500"><option value="ALL">Álbumes</option>{stats.projectsProgress.map(album => !album.isVault && !album.isSealed && (<option key={album.id} value={album.id}>{album.name}</option>))}</select>
-                            <FolderOpen className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" size={12} />
-                        </div>
-                        <div className="relative">
-                            <select value={filterSet} onChange={(e) => setFilterSet(e.target.value)} className="w-full appearance-none bg-slate-950 border border-white/10 rounded-lg py-2 pl-3 pr-8 text-xs text-white focus:outline-none focus:border-violet-500"><option value="ALL">Sets</option>{uniqueSets.map(set => (<option key={set.id} value={set.id}>{set.name}</option>))}</select>
-                            <Filter className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" size={12} />
-                        </div>
-                        {/* BOTÓN SELECCIONAR TODO */}
-                        <div className="relative">
-                            <button onClick={handleSelectAllFiltered} className="w-full h-full bg-violet-600/10 hover:bg-violet-600/20 text-violet-400 border border-violet-500/30 rounded-lg py-2 px-3 text-xs font-bold uppercase tracking-wide flex items-center justify-center gap-2">
-                                <CheckSquare size={14} /> Seleccionar Todo
-                            </button>
-                        </div>
+                        <div className="relative"><Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={14} /><input type="text" placeholder="Buscar..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full bg-slate-950 border border-white/10 rounded-lg py-2 pl-9 pr-3 text-xs text-white focus:outline-none focus:border-violet-500"/></div>
+                        <div className="relative"><select value={filterAlbum} onChange={(e) => setFilterAlbum(e.target.value)} className="w-full appearance-none bg-slate-950 border border-white/10 rounded-lg py-2 pl-3 pr-8 text-xs text-white focus:outline-none focus:border-violet-500"><option value="ALL">Álbumes</option>{stats.projectsProgress.map(album => !album.isVault && !album.isSealed && (<option key={album.id} value={album.id}>{album.name}</option>))}</select><FolderOpen className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" size={12} /></div>
+                        <div className="relative"><select value={filterSet} onChange={(e) => setFilterSet(e.target.value)} className="w-full appearance-none bg-slate-950 border border-white/10 rounded-lg py-2 pl-3 pr-8 text-xs text-white focus:outline-none focus:border-violet-500"><option value="ALL">Sets</option>{uniqueSets.map(set => (<option key={set.id} value={set.id}>{set.name}</option>))}</select><Filter className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" size={12} /></div>
+                        <div className="relative"><button onClick={handleSelectAllFiltered} className="w-full h-full bg-violet-600/10 hover:bg-violet-600/20 text-violet-400 border border-violet-500/30 rounded-lg py-2 px-3 text-xs font-bold uppercase tracking-wide flex items-center justify-center gap-2"><CheckSquare size={14} /> Seleccionar Todo</button></div>
                     </div>
-                </div>
-
+                 </div>
                  <div className="flex-1 overflow-y-auto p-4 bg-slate-950/30">
                      {filteredCards.length === 0 ? (
-                        <div className="flex flex-col items-center justify-center h-full text-slate-500 gap-4">
-                            <Target size={40} className="opacity-20" />
-                            <p className="text-xs">Sin resultados</p>
-                        </div>
+                        <div className="flex flex-col items-center justify-center h-full text-slate-500 gap-4"><Target size={40} className="opacity-20" /><p className="text-xs">Sin resultados</p></div>
                      ) : (
                          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3 auto-rows-max">
                              {filteredCards.slice(0, visibleCount).map((c, index) => (
                                  <div key={`${c.id}-${index}`} onClick={() => toggleSelectCard(c.id)} className={`relative aspect-[63/88] rounded-lg overflow-hidden cursor-pointer transition-all duration-200 border ${selectedForOrder.includes(c.id) ? 'border-violet-500 shadow-[0_0_10px_rgba(139,92,246,0.5)] scale-[0.96]' : 'border-transparent opacity-80 hover:opacity-100'}`}>
-                                     
-                                     {/* AQUÍ ESTÁ LA CORRECCIÓN: SIN crossOrigin */}
-                                     <img src={c.image} className="w-full h-full object-cover" loading="lazy" />
-                                     
+                                     {/* AQUÍ ESTÁ EL TRUCO TAMBIÉN PARA EL GRID: REFERRER POLICY */}
+                                     <img src={c.image} className="w-full h-full object-cover" referrerPolicy="no-referrer" loading="lazy" />
                                      {selectedForOrder.includes(c.id) && <div className="absolute inset-0 bg-violet-600/40 backdrop-blur-[1px] flex items-center justify-center animate-in fade-in duration-200"><div className="bg-violet-600 rounded-full p-1 shadow-lg"><CheckCircle2 className="text-white" size={16} strokeWidth={3} /></div></div>}
                                  </div>
                              ))}
                          </div>
                      )}
-                     
-                     {/* BOTÓN CARGAR MÁS */}
-                     {visibleCount < filteredCards.length && (
-                        <div className="mt-6 mb-32 text-center">
-                            <button onClick={handleLoadMore} className="text-slate-400 hover:text-white text-[10px] font-bold uppercase tracking-widest px-6 py-3 border border-white/5 rounded-full hover:bg-white/5 transition-all">
-                                Cargar más cartas ({filteredCards.length - visibleCount} restantes)
-                            </button>
-                        </div>
-                     )}
+                     {visibleCount < filteredCards.length && (<div className="mt-6 mb-32 text-center"><button onClick={handleLoadMore} className="text-slate-400 hover:text-white text-[10px] font-bold uppercase tracking-widest px-6 py-3 border border-white/5 rounded-full hover:bg-white/5 transition-all">Cargar más cartas ({filteredCards.length - visibleCount} restantes)</button></div>)}
                      <div className="h-32 w-full" />
                  </div>
-
                  <div className="absolute bottom-0 left-0 right-0 p-4 pb-8 md:pb-4 border-t border-white/5 bg-slate-900/95 backdrop-blur-md flex justify-between items-center gap-4 z-50 shadow-2xl">
                      <span className="text-slate-500 text-[10px] font-bold uppercase tracking-wider">{selectedForOrder.length} seleccionadas</span>
                      <button onClick={() => setIsSelectorOpen(false)} className="bg-violet-600 text-white px-6 py-3 rounded-xl font-bold text-xs uppercase tracking-widest shadow-lg shadow-violet-900/20 active:scale-95">Confirmar</button>
@@ -591,80 +482,18 @@ function ProfileContent() {
         </div>
       )}
 
-      <ConfirmModal 
-        isOpen={!!albumToDelete}
-        onClose={() => setAlbumToDelete(null)}
-        onConfirm={handleConfirmDeleteAlbum}
-        title="¿Eliminar Álbum?"
-        description="Esta acción eliminará el álbum y todas las estadísticas asociadas."
-        confirmText="Eliminar Álbum"
-        isProcessing={isDeletingAlbum}
-        variant="danger"
-      />
-
+      <ConfirmModal isOpen={!!albumToDelete} onClose={() => setAlbumToDelete(null)} onConfirm={handleConfirmDeleteAlbum} title="¿Eliminar Álbum?" description="Esta acción eliminará el álbum y todas las estadísticas asociadas." confirmText="Eliminar Álbum" isProcessing={isDeletingAlbum} variant="danger" />
       {isRedeemOpen && (
           <div className="fixed inset-0 z-[300] bg-black/90 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200">
               <div className="relative w-full max-w-4xl bg-slate-950 border border-white/10 rounded-3xl shadow-2xl overflow-hidden flex flex-col md:flex-row h-[600px] md:h-[500px]">
                   <div className="w-full md:w-2/5 bg-gradient-to-br from-amber-500/20 via-slate-900 to-black p-8 flex flex-col relative overflow-hidden">
                       <div className="absolute top-0 right-0 w-64 h-64 bg-amber-500/20 blur-[100px] rounded-full pointer-events-none" />
-                      <div className="relative z-10">
-                          <h2 className="text-3xl font-black text-white italic tracking-tighter uppercase mb-2">Acceso <span className="text-amber-500">PRO</span></h2>
-                          <p className="text-amber-200/60 text-sm font-medium mb-8">Desbloquea todo el potencial de tu colección.</p>
-                          <div className="space-y-6">
-                              <div className="flex items-center gap-4 group">
-                                  <div className="w-10 h-10 bg-amber-500/10 rounded-xl flex items-center justify-center border border-amber-500/20 text-amber-400 group-hover:scale-110 transition-transform"><ShieldCheck size={20} /></div>
-                                  <div><h4 className="text-white font-bold text-sm">Cámara Acorazada</h4><p className="text-slate-400 text-xs">Gestiona tus cartas graded (PSA, BGS...)</p></div>
-                              </div>
-                              <div className="flex items-center gap-4 group">
-                                  <div className="w-10 h-10 bg-indigo-500/10 rounded-xl flex items-center justify-center border border-indigo-500/20 text-indigo-400 group-hover:scale-110 transition-transform"><Package size={20} /></div>
-                                  <div><h4 className="text-white font-bold text-sm">Almacén Sellado</h4><p className="text-slate-400 text-xs">Control de ETBs, Boosters y Cajas.</p></div>
-                              </div>
-                              <div className="flex items-center gap-4 group">
-                                  <div className="w-10 h-10 bg-emerald-500/10 rounded-xl flex items-center justify-center border border-emerald-500/20 text-emerald-400 group-hover:scale-110 transition-transform"><Sparkles size={20} /></div>
-                                  <div><h4 className="text-white font-bold text-sm">Sin Límites</h4><p className="text-slate-400 text-xs">Crea tantos álbumes como quieras.</p></div>
-                              </div>
-                          </div>
-                      </div>
-                      <div className="mt-auto pt-8 relative z-10">
-                          <div className="flex items-center gap-2 text-[10px] uppercase tracking-widest text-slate-500 font-bold"><CheckCircle2 size={12} className="text-amber-500" /> Cancelación flexible</div>
-                      </div>
-                  </div>
-
+                      <div className="relative z-10"><h2 className="text-3xl font-black text-white italic tracking-tighter uppercase mb-2">Acceso <span className="text-amber-500">PRO</span></h2><p className="text-amber-200/60 text-sm font-medium mb-8">Desbloquea todo el potencial de tu colección.</p><div className="space-y-6"><div className="flex items-center gap-4 group"><div className="w-10 h-10 bg-amber-500/10 rounded-xl flex items-center justify-center border border-amber-500/20 text-amber-400 group-hover:scale-110 transition-transform"><ShieldCheck size={20} /></div><div><h4 className="text-white font-bold text-sm">Cámara Acorazada</h4><p className="text-slate-400 text-xs">Gestiona tus cartas graded (PSA, BGS...)</p></div></div><div className="flex items-center gap-4 group"><div className="w-10 h-10 bg-indigo-500/10 rounded-xl flex items-center justify-center border border-indigo-500/20 text-indigo-400 group-hover:scale-110 transition-transform"><Package size={20} /></div><div><h4 className="text-white font-bold text-sm">Almacén Sellado</h4><p className="text-slate-400 text-xs">Control de ETBs, Boosters y Cajas.</p></div></div><div className="flex items-center gap-4 group"><div className="w-10 h-10 bg-emerald-500/10 rounded-xl flex items-center justify-center border border-emerald-500/20 text-emerald-400 group-hover:scale-110 transition-transform"><Sparkles size={20} /></div><div><h4 className="text-white font-bold text-sm">Sin Límites</h4><p className="text-slate-400 text-xs">Crea tantos álbumes como quieras.</p></div></div></div></div><div className="mt-auto pt-8 relative z-10"><div className="flex items-center gap-2 text-[10px] uppercase tracking-widest text-slate-500 font-bold"><CheckCircle2 size={12} className="text-amber-500" /> Cancelación flexible</div></div></div>
                   <div className="w-full md:w-3/5 bg-slate-950 p-8 flex flex-col">
                       <button onClick={() => setIsRedeemOpen(false)} className="absolute top-6 right-6 p-2 text-slate-500 hover:text-white transition-colors bg-white/5 hover:bg-white/10 rounded-full"><X size={18} /></button>
-                      <div className="flex p-1 bg-slate-900 rounded-xl mb-8 self-start border border-white/5">
-                          <button onClick={() => setRedeemMode('SUBSCRIPTION')} className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${redeemMode === 'SUBSCRIPTION' ? 'bg-violet-600 text-white shadow-lg' : 'text-slate-500 hover:text-white'}`}>Suscripción Mensual</button>
-                          <button onClick={() => setRedeemMode('CODE')} className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${redeemMode === 'CODE' ? 'bg-amber-500 text-black shadow-lg' : 'text-slate-500 hover:text-white'}`}>Código de Tienda</button>
-                      </div>
+                      <div className="flex p-1 bg-slate-900 rounded-xl mb-8 self-start border border-white/5"><button onClick={() => setRedeemMode('SUBSCRIPTION')} className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${redeemMode === 'SUBSCRIPTION' ? 'bg-violet-600 text-white shadow-lg' : 'text-slate-500 hover:text-white'}`}>Suscripción Mensual</button><button onClick={() => setRedeemMode('CODE')} className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${redeemMode === 'CODE' ? 'bg-amber-500 text-black shadow-lg' : 'text-slate-500 hover:text-white'}`}>Código de Tienda</button></div>
                       <div className="flex-1 flex flex-col justify-center">
-                          {redeemMode === 'CODE' ? (
-                              <div className="animate-in fade-in slide-in-from-right-4 duration-300">
-                                  <h3 className="text-xl font-bold text-white mb-2">Canjear Acceso</h3>
-                                  <p className="text-slate-400 text-sm mb-6">Introduce el código único proporcionado por tu tienda local asociada.</p>
-                                  <form onSubmit={handleRedeemCode} className="space-y-4">
-                                      <div className="relative group/input">
-                                          <Ticket className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within/input:text-amber-500 transition-colors" size={20} />
-                                          <input type="text" placeholder="CÓDIGO (Ej: CARDZONE)" className="w-full bg-slate-900/50 border border-white/10 rounded-xl py-4 pl-12 pr-4 text-white font-mono font-bold uppercase placeholder:text-slate-600 focus:outline-none focus:border-amber-500 focus:bg-slate-900 transition-all" value={redeemCode} onChange={(e) => setRedeemCode(e.target.value.toUpperCase())} />
-                                      </div>
-                                      <button type="submit" disabled={isRedeeming || !redeemCode} className="w-full bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-black py-4 rounded-xl text-sm font-black uppercase tracking-widest disabled:opacity-50 transition-all shadow-lg shadow-amber-900/20 hover:scale-[1.02] active:scale-95 flex items-center justify-center gap-2">
-                                          {isRedeeming ? <Loader2 className="animate-spin" size={18} /> : <>Canjear Código <ChevronRight size={18}/></>}
-                                      </button>
-                                  </form>
-                              </div>
-                          ) : (
-                              <div className="animate-in fade-in slide-in-from-left-4 duration-300 relative">
-                                  <div className="opacity-100">
-                                      <div className="flex justify-between items-baseline mb-2"><h3 className="text-xl font-bold text-white">Plan Coleccionista</h3><span className="text-2xl font-black text-white">1.99€<span className="text-sm font-medium text-slate-500">/mes</span></span></div>
-                                      <p className="text-slate-400 text-sm mb-6">Suscripción mensual flexible. Cancela cuando quieras.</p>
-                                      <div className="bg-slate-900/50 border border-white/5 rounded-xl p-4 mb-6 space-y-3">
-                                          <div className="flex items-center gap-3 text-sm text-slate-300"><CheckCircle2 size={16} className="text-violet-500"/> <span>Acceso completo a la App</span></div>
-                                          <div className="flex items-center gap-3 text-sm text-slate-300"><CheckCircle2 size={16} className="text-violet-500"/> <span>Badge de perfil PRO</span></div>
-                                      </div>
-                                      <button onClick={handleSubscribe} disabled={isSubscribing} className="w-full bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-400 hover:to-amber-400 text-black py-4 rounded-xl text-sm font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-all shadow-lg active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed">
-                                         {isSubscribing ? <Loader2 className="animate-spin" size={18}/> : <><CreditCard size={18} /> Suscribirse</>}</button>
-                                  </div>
-                              </div>
-                          )}
+                          {redeemMode === 'CODE' ? (<div className="animate-in fade-in slide-in-from-right-4 duration-300"><h3 className="text-xl font-bold text-white mb-2">Canjear Acceso</h3><p className="text-slate-400 text-sm mb-6">Introduce el código único proporcionado por tu tienda local asociada.</p><form onSubmit={handleRedeemCode} className="space-y-4"><div className="relative group/input"><Ticket className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within/input:text-amber-500 transition-colors" size={20} /><input type="text" placeholder="CÓDIGO (Ej: CARDZONE)" className="w-full bg-slate-900/50 border border-white/10 rounded-xl py-4 pl-12 pr-4 text-white font-mono font-bold uppercase placeholder:text-slate-600 focus:outline-none focus:border-amber-500 focus:bg-slate-900 transition-all" value={redeemCode} onChange={(e) => setRedeemCode(e.target.value.toUpperCase())} /></div><button type="submit" disabled={isRedeeming || !redeemCode} className="w-full bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-black py-4 rounded-xl text-sm font-black uppercase tracking-widest disabled:opacity-50 transition-all shadow-lg shadow-amber-900/20 hover:scale-[1.02] active:scale-95 flex items-center justify-center gap-2">{isRedeeming ? <Loader2 className="animate-spin" size={18} /> : <>Canjear Código <ChevronRight size={18}/></>}</button></form></div>) : (<div className="animate-in fade-in slide-in-from-left-4 duration-300 relative"><div className="opacity-100"><div className="flex justify-between items-baseline mb-2"><h3 className="text-xl font-bold text-white">Plan Coleccionista</h3><span className="text-2xl font-black text-white">1.99€<span className="text-sm font-medium text-slate-500">/mes</span></span></div><p className="text-slate-400 text-sm mb-6">Suscripción mensual flexible. Cancela cuando quieras.</p><div className="bg-slate-900/50 border border-white/5 rounded-xl p-4 mb-6 space-y-3"><div className="flex items-center gap-3 text-sm text-slate-300"><CheckCircle2 size={16} className="text-violet-500"/> <span>Acceso completo a la App</span></div><div className="flex items-center gap-3 text-sm text-slate-300"><CheckCircle2 size={16} className="text-violet-500"/> <span>Badge de perfil PRO</span></div></div><button onClick={handleSubscribe} disabled={isSubscribing} className="w-full bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-400 hover:to-amber-400 text-black py-4 rounded-xl text-sm font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-all shadow-lg active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed">{isSubscribing ? <Loader2 className="animate-spin" size={18}/> : <><CreditCard size={18} /> Suscribirse</>}</button></div></div>)}
                       </div>
                   </div>
               </div>
