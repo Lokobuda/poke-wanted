@@ -20,6 +20,11 @@ export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
   title: "PokéBinders",
   description: "Gestiona tu colección de cartas con estilo Gengar",
+  metadataBase: new URL('https://pokebinders.com'), // Importante para compartir links
+  icons: {
+    icon: '/icon.png',       // Icono en pestaña navegador
+    apple: '/apple-icon.png' // Icono en pantalla de inicio iPhone
+  },
   manifest: "/manifest.json",
 };
 
