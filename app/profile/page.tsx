@@ -56,7 +56,6 @@ function ProfileContent() {
   const [subscriptionType, setSubscriptionType] = useState<'INDIE' | 'GYM' | 'PRO'>('INDIE')
   const [gymData, setGymData] = useState<{name: string, logo_url?: string | null} | null>(null)
   
-  // NUEVO ESTADO: Ofertas de la tienda
   const [gymOffers, setGymOffers] = useState<any[]>([])
   
   const [showStarterSelector, setShowStarterSelector] = useState(false)
@@ -110,7 +109,6 @@ function ProfileContent() {
     const openPro = searchParams.get('open_pro')
     if (openPro === 'true') { setIsRedeemOpen(true); router.replace('/profile', { scroll: false }) }
     
-    // GESTIÓN RETORNO STRIPE
     const paymentStatus = searchParams.get('payment')
     if (paymentStatus === 'success') {
         toast.success('¡Bienvenido al Club PRO!', { description: 'Tu suscripción se ha activado correctamente.' })
@@ -136,7 +134,56 @@ function ProfileContent() {
   const toggleSelectCard = (id: string) => setSelectedForOrder(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id])
   const handleLoadMore = () => setVisibleCount(prev => prev + 50)
   const handleOpenPosterMode = () => { if (selectedForOrder.length === 0) return toast.warning("Selecciona al menos una carta."); setPosterPage(0); setIsPosterMode(true) }
-  const handleInteractiveDownload = async (totalPages: number) => { if (isDownloading) return; setIsDownloading(true); setDownloadSuccess(false); try { const initialPage = posterPage; for (let i = 0; i < totalPages; i++) { setPosterPage(i); await new Promise(resolve => setTimeout(resolve, 1000)); const posterNode = document.getElementById('visible-poster'); if (posterNode) { const dataUrl = await toPng(posterNode, { quality: 1.0, pixelRatio: 2, cacheBust: true }); setFlashActive(true); setTimeout(() => setFlashActive(false), 150); download(dataUrl, `pokebinders-wanted-${username}-${i + 1}.png`); await new Promise(resolve => setTimeout(resolve, 500)); } } setPosterPage(initialPage); setDownloadSuccess(true); setTimeout(() => { setDownloadSuccess(false); setIsDownloading(false) }, 3000); } catch (error) { console.error('Error:', error); toast.error('Error al descargar póster'); setIsDownloading(false) } }
+  
+  // --- FUNCIÓN DE DESCARGA MEJORADA PARA IOS/SAFARI ---
+  const handleInteractiveDownload = async (totalPages: number) => { 
+    if (isDownloading) return; 
+    setIsDownloading(true); 
+    setDownloadSuccess(false); 
+    
+    try { 
+        const initialPage = posterPage; 
+        
+        for (let i = 0; i < totalPages; i++) { 
+            setPosterPage(i); 
+            // 1. ESPERA CRÍTICA: Damos 1.5s para que Safari pinte las imágenes
+            await new Promise(resolve => setTimeout(resolve, 1500)); 
+            
+            const posterNode = document.getElementById('visible-poster'); 
+            
+            if (posterNode) { 
+                // 2. Configuración anti-pantalla blanca
+                const dataUrl = await toPng(posterNode, { 
+                    quality: 0.95, 
+                    pixelRatio: 2, 
+                    cacheBust: true, 
+                    skipAutoScale: true
+                }); 
+                
+                setFlashActive(true); 
+                setTimeout(() => setFlashActive(false), 200); 
+                
+                download(dataUrl, `pokebinders-wanted-${username}-page-${i + 1}.png`); 
+                
+                // 3. Pausa entre descargas
+                await new Promise(resolve => setTimeout(resolve, 800)); 
+            } 
+        } 
+        
+        setPosterPage(initialPage); 
+        setDownloadSuccess(true); 
+        setTimeout(() => { 
+            setDownloadSuccess(false); 
+            setIsDownloading(false) 
+        }, 3000); 
+        
+    } catch (error) { 
+        console.error('Error:', error); 
+        toast.error('Error al generar imagen', { description: 'Inténtalo de nuevo, Safari a veces se pone tímido.' }); 
+        setIsDownloading(false) 
+    } 
+  }
+  // -----------------------------------------------------
 
   const fetchProfileData = async (mounted: boolean = true) => {
     try {
@@ -226,42 +273,24 @@ function ProfileContent() {
     } catch (error) { console.error(error); toast.error('Error al cargar perfil') } finally { if(mounted) setLoading(false) }
   }
 
-  // --- LOGICA SUSCRIPCIÓN CORREGIDA (PLAN DE EMERGENCIA) ---
   const handleSubscribe = async () => {
     setIsSubscribing(true);
     try {
-        // 1. OBTENEMOS EL TOKEN DE SESIÓN MANUALMENTE
         const { data: { session } } = await supabase.auth.getSession();
         const token = session?.access_token;
+        if (!token) throw new Error('No se encontró sesión activa.');
 
-        if (!token) {
-            throw new Error('No se encontró sesión activa. Por favor, recarga e inicia sesión.');
-        }
-
-        // 2. ENVIAMOS EL TOKEN EN LA CABECERA 'Authorization'
         const response = await fetch('/api/checkout', { 
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}` // <--- ESTO ES LA CLAVE
-            }
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }
         });
 
-        if (!response.ok) {
-            const errorMsg = await response.text();
-            throw new Error(errorMsg || 'Error desconocido del servidor');
-        }
-
+        if (!response.ok) throw new Error(await response.text());
         const data = await response.json();
-        
-        if (data.url) {
-            window.location.href = data.url;
-        } else {
-            throw new Error('No se recibió la URL de pago');
-        }
+        if (data.url) window.location.href = data.url;
+        else throw new Error('No se recibió la URL de pago');
     } catch (error: any) {
-        console.error(error);
-        toast.error('Error de pago', { description: error.message || 'Comprueba la consola para más detalles.' });
+        toast.error('Error de pago', { description: error.message });
         setIsSubscribing(false);
     }
   }
@@ -273,10 +302,7 @@ function ProfileContent() {
   
   const handleCopyOffer = (code: string) => {
     navigator.clipboard.writeText(code)
-    toast.success('¡Código copiado!', {
-        description: 'Muéstralo en caja o úsalo en la web.',
-        icon: '🎟️'
-    })
+    toast.success('¡Código copiado!', { description: 'Muéstralo en caja o úsalo en la web.', icon: '🎟️' })
   }
 
   const getBuddyImage = () => {
@@ -294,10 +320,7 @@ function ProfileContent() {
     localStorage.setItem('tutorial_completed', 'true')
     localStorage.setItem('tutorial_phase', 'creating')
     setShowTutorial(false)
-    try { 
-        const { data: { session } } = await supabase.auth.getSession(); 
-        if (session) await supabase.from('profiles').update({ has_completed_tutorial: true }).eq('id', session.user.id) 
-    } catch (err) { console.log("Error guardando tutorial") }
+    try { const { data: { session } } = await supabase.auth.getSession(); if (session) await supabase.from('profiles').update({ has_completed_tutorial: true }).eq('id', session.user.id) } catch (err) { console.log("Error guardando tutorial") }
     router.push('/create', { scroll: false })
   }
 
@@ -309,7 +332,6 @@ function ProfileContent() {
   const buddyImage = getBuddyImage()
   
   const showPartnerSpace = subscriptionType === 'GYM' && gymData && gymOffers.length > 0
-  
   const gridLayoutClass = showPartnerSpace ? 'md:grid-cols-2' : 'grid-cols-1'
 
   const PosterTemplate = ({ cards, pageIndex, totalPages }: any) => (
@@ -368,7 +390,6 @@ function ProfileContent() {
             )}
         </div>
 
-        {/* STATS */}
         <div id="tour-stats" className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
             <div className="bg-slate-900/50 backdrop-blur border border-white/5 p-6 rounded-3xl flex flex-col justify-between h-40">
                 <div className="flex justify-between items-start"><div className="p-3 bg-violet-500/10 rounded-xl text-violet-400"><Layers size={24} /></div><span className="text-xs font-bold uppercase tracking-widest text-slate-500">Colección</span></div>
@@ -385,7 +406,6 @@ function ProfileContent() {
             </div>
         </div>
 
-        {/* PROYECTOS */}
         {stats.projectsProgress.length > 0 && (
           <div id="tour-projects" className="mb-12 animate-in slide-in-from-bottom-6 duration-700 delay-200">
              <h3 className="text-lg font-bold text-white mb-6 flex items-center gap-2"><CheckCircle2 size={18} className="text-violet-500"/> Proyectos Activos</h3>
@@ -426,10 +446,8 @@ function ProfileContent() {
           </div>
         )}
 
-        {/* --- GRID MIXTO: WANTED LIST + PARTNER SPACE --- */}
         <div className={`grid grid-cols-1 ${gridLayoutClass} gap-6 mb-12 auto-rows-fr`}>
             
-            {/* COLUMNA WANTED LIST */}
             <div id="tour-wanted" className="bg-slate-900/40 backdrop-blur-xl rounded-[40px] p-10 border border-white/10 shadow-2xl relative overflow-hidden flex flex-col h-full">
                 <div className="relative z-10 flex-1 flex flex-col">
                     <div className="flex justify-between items-center mb-10"><h3 className="text-3xl font-black text-white flex items-center gap-3"><Sparkles className="text-violet-400" /> Wanted List</h3></div>
@@ -447,7 +465,6 @@ function ProfileContent() {
                 </div>
             </div>
 
-            {/* COLUMNA ESPACIO PARTNER */}
             {showPartnerSpace && gymData && (
                 <div className="bg-slate-900/40 backdrop-blur-xl rounded-[40px] p-10 border border-white/10 shadow-2xl relative overflow-hidden flex flex-col h-full animate-in slide-in-from-right-4 duration-700">
                     <div className="relative z-10 flex-1 flex flex-col h-full">
@@ -490,9 +507,8 @@ function ProfileContent() {
 
       {isSelectorOpen && (
         <div className="fixed inset-0 z-[100] bg-black/95 md:bg-black/90 flex items-center justify-center p-0 md:p-8 backdrop-blur-sm animate-in fade-in duration-200">
-             <div className="bg-slate-950 md:bg-slate-900 w-full md:max-w-6xl h-full md:h-[85vh] md:rounded-3xl border-0 md:border border-white/10 flex flex-col shadow-2xl overflow-hidden">
+             <div className="bg-slate-950 md:bg-slate-900 w-full md:max-w-6xl h-full md:h-[85vh] md:rounded-3xl border-0 md:border border-white/10 flex flex-col shadow-2xl overflow-hidden relative">
                  
-                 {/* HEADER DEL SELECTOR - OPTIMIZADO PARA MÓVIL */}
                  <div className="p-4 md:p-6 border-b border-white/5 flex flex-col gap-4 bg-slate-900/95 z-20">
                     <div className="flex justify-between items-center">
                         <div>
@@ -502,7 +518,6 @@ function ProfileContent() {
                         <button onClick={() => setIsSelectorOpen(false)} className="p-2 bg-white/5 rounded-full text-slate-300 hover:text-white"><X size={20} /></button>
                     </div>
                     
-                    {/* FILTROS EN GRID - 1 COLUMNA EN MÓVIL, 4 EN PC */}
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-2 md:gap-4">
                         <div className="relative">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={14} />
@@ -523,7 +538,6 @@ function ProfileContent() {
                     </div>
                  </div>
 
-                 {/* GRID DE CARTAS - EXPANDIDO PARA OCUPAR TODO EL ESPACIO */}
                  <div className="flex-1 overflow-y-auto p-4 bg-slate-950/30">
                      {filteredCards.length === 0 ? (
                         <div className="flex flex-col items-center justify-center h-full text-slate-500 gap-4">
@@ -531,7 +545,7 @@ function ProfileContent() {
                             <p className="text-xs">Sin resultados</p>
                         </div>
                      ) : (
-                         <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3 auto-rows-max pb-20">
+                         <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3 auto-rows-max">
                              {filteredCards.slice(0, visibleCount).map((c, index) => (
                                  <div key={`${c.id}-${index}`} onClick={() => toggleSelectCard(c.id)} className={`relative aspect-[63/88] rounded-lg overflow-hidden cursor-pointer transition-all duration-200 border ${selectedForOrder.includes(c.id) ? 'border-violet-500 shadow-[0_0_10px_rgba(139,92,246,0.5)] scale-[0.96]' : 'border-transparent opacity-80 hover:opacity-100'}`}>
                                      <img src={c.image} className="w-full h-full object-cover" loading="lazy" />
@@ -540,11 +554,10 @@ function ProfileContent() {
                              ))}
                          </div>
                      )}
-                     {visibleCount < filteredCards.length && <div className="mt-4 pb-20 text-center"><button onClick={handleLoadMore} className="text-slate-400 hover:text-white text-[10px] font-bold uppercase tracking-widest px-4 py-2 border border-white/5 rounded-full">Cargar más</button></div>}
+                     <div className="h-32 w-full" />
                  </div>
 
-                 {/* FOOTER FIJO - CONFIRMAR SELECCIÓN */}
-                 <div className="p-4 border-t border-white/5 bg-slate-900 flex justify-between items-center gap-4 z-20 pb-8 md:pb-4">
+                 <div className="absolute bottom-0 left-0 right-0 p-4 pb-8 md:pb-4 border-t border-white/5 bg-slate-900/95 backdrop-blur-md flex justify-between items-center gap-4 z-50 shadow-2xl">
                      <span className="text-slate-500 text-[10px] font-bold uppercase tracking-wider">{selectedForOrder.length} seleccionadas</span>
                      <button onClick={() => setIsSelectorOpen(false)} className="bg-violet-600 text-white px-6 py-3 rounded-xl font-bold text-xs uppercase tracking-widest shadow-lg shadow-violet-900/20 active:scale-95">Confirmar</button>
                  </div>
@@ -552,7 +565,6 @@ function ProfileContent() {
         </div>
       )}
 
-      {/* CONFIRM MODAL */}
       <ConfirmModal 
         isOpen={!!albumToDelete}
         onClose={() => setAlbumToDelete(null)}
@@ -564,11 +576,9 @@ function ProfileContent() {
         variant="danger"
       />
 
-      {/* --- HUB DE MEMBRESÍA --- */}
       {isRedeemOpen && (
           <div className="fixed inset-0 z-[300] bg-black/90 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200">
               <div className="relative w-full max-w-4xl bg-slate-950 border border-white/10 rounded-3xl shadow-2xl overflow-hidden flex flex-col md:flex-row h-[600px] md:h-[500px]">
-                  {/* ... COLUMNA IZQUIERDA ... */}
                   <div className="w-full md:w-2/5 bg-gradient-to-br from-amber-500/20 via-slate-900 to-black p-8 flex flex-col relative overflow-hidden">
                       <div className="absolute top-0 right-0 w-64 h-64 bg-amber-500/20 blur-[100px] rounded-full pointer-events-none" />
                       <div className="relative z-10">
@@ -594,7 +604,6 @@ function ProfileContent() {
                       </div>
                   </div>
 
-                  {/* ... COLUMNA DERECHA ... */}
                   <div className="w-full md:w-3/5 bg-slate-950 p-8 flex flex-col">
                       <button onClick={() => setIsRedeemOpen(false)} className="absolute top-6 right-6 p-2 text-slate-500 hover:text-white transition-colors bg-white/5 hover:bg-white/10 rounded-full"><X size={18} /></button>
                       <div className="flex p-1 bg-slate-900 rounded-xl mb-8 self-start border border-white/5">
@@ -618,13 +627,11 @@ function ProfileContent() {
                               </div>
                           ) : (
                               <div className="animate-in fade-in slide-in-from-left-4 duration-300 relative">
-                                  {/* AQUÍ YA NO HAY CANDADO :) */}
                                   <div className="opacity-100">
                                       <div className="flex justify-between items-baseline mb-2"><h3 className="text-xl font-bold text-white">Plan Coleccionista</h3><span className="text-2xl font-black text-white">1.99€<span className="text-sm font-medium text-slate-500">/mes</span></span></div>
                                       <p className="text-slate-400 text-sm mb-6">Suscripción mensual flexible. Cancela cuando quieras.</p>
                                       <div className="bg-slate-900/50 border border-white/5 rounded-xl p-4 mb-6 space-y-3">
                                           <div className="flex items-center gap-3 text-sm text-slate-300"><CheckCircle2 size={16} className="text-violet-500"/> <span>Acceso completo a la App</span></div>
-                                          {/* LINEA DE SOPORTE PRIORITARIO ELIMINADA */}
                                           <div className="flex items-center gap-3 text-sm text-slate-300"><CheckCircle2 size={16} className="text-violet-500"/> <span>Badge de perfil PRO</span></div>
                                       </div>
                                       <button onClick={handleSubscribe} disabled={isSubscribing} className="w-full bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-400 hover:to-amber-400 text-black py-4 rounded-xl text-sm font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-all shadow-lg active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed">
@@ -642,7 +649,6 @@ function ProfileContent() {
   )
 }
 
-// --- EXPORTACIÓN PRINCIPAL ---
 export default function ProfilePage() {
   return (
     <Suspense fallback={<div className="min-h-screen bg-slate-950 flex items-center justify-center"><Loader2 className="animate-spin text-violet-500" /></div>}>

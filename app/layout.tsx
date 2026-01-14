@@ -15,9 +15,7 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-// --- ESTA ES LA LÍNEA MÁGICA QUE ARREGLA EL ERROR ---
 export const dynamic = "force-dynamic"; 
-// ----------------------------------------------------
 
 export const metadata: Metadata = {
   title: "PokéBinders",
@@ -25,9 +23,15 @@ export const metadata: Metadata = {
   manifest: "/manifest.json",
 };
 
+// --- AQUÍ ESTÁ EL CAMBIO CLAVE PARA QUE PAREZCA UNA APP ---
 export const viewport: Viewport = {
   themeColor: "#020617",
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false, // ESTO BLOQUEA EL ZOOM PELLIZCO
 };
+// ---------------------------------------------------------
 
 export default function RootLayout({
   children,

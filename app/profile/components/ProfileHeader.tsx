@@ -32,7 +32,11 @@ export default function ProfileHeader({
 }: ProfileHeaderProps) {
 
   const [imgError, setImgError] = useState(false)
-  useEffect(() => { setImgError(false) }, [avatarUrl])
+  
+  // Resetear error si cambia la URL (por si el usuario elige otro starter)
+  useEffect(() => { 
+      setImgError(false) 
+  }, [avatarUrl])
 
   const safeNextXp = nextLevelXp || 1
   const progress = Math.min((xp / safeNextXp) * 100, 100)
@@ -42,7 +46,6 @@ export default function ProfileHeader({
     <div className="w-full flex flex-row items-center gap-4 sm:gap-6 md:gap-8 mb-8 sm:mb-10 animate-in fade-in slide-in-from-top-4 duration-700">
       
       {/* 1. AVATAR / BUDDY */}
-      {/* Ajustado: w-20 en móvil (más pequeño) para dar aire al texto */}
       <button 
         onClick={onEditAvatar}
         className={`relative group shrink-0 cursor-pointer transition-transform active:scale-95 ${isPremium ? 'text-amber-500' : 'text-cyan-400'}`}
@@ -51,24 +54,28 @@ export default function ProfileHeader({
         <div className="absolute -inset-1 bg-current blur opacity-30 group-hover:opacity-50 transition-opacity rounded-3xl"></div>
         
         <div className="w-20 h-20 sm:w-24 sm:h-24 md:w-28 md:h-28 bg-slate-900 border-2 border-current/20 rounded-3xl flex items-center justify-center overflow-hidden relative z-10 shadow-2xl bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-slate-800 to-slate-950">
+           
            <div className="absolute inset-0 bg-black/60 z-50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-[2px]">
               <Pencil className="text-white" size={24} />
            </div>
 
+           {/* LÓGICA DE IMAGEN ROBUSTA: Si hay URL y NO hay error, muestra imagen. Si no, HUEVO. */}
            {avatarUrl && !imgError ? (
              <img 
                src={avatarUrl} 
                alt="Buddy" 
-               onError={() => setImgError(true)}
-               className="w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 object-contain drop-shadow-xl pixelated rendering-pixelated group-hover:scale-105 transition-transform duration-500"
+               onError={() => setImgError(true)} // Si falla, activa el huevo
+               className="w-full h-full object-contain p-2 drop-shadow-xl pixelated rendering-pixelated group-hover:scale-110 transition-transform duration-500"
                style={{ imageRendering: 'pixelated' }} 
              />
            ) : (
-             <span className="text-3xl sm:text-5xl animate-bounce">🥚</span>
+             <div className="flex flex-col items-center justify-center animate-bounce-slow">
+                <span className="text-4xl sm:text-5xl filter drop-shadow-lg">🥚</span>
+             </div>
            )}
         </div>
         
-        <div className="absolute -bottom-2 -right-2 bg-slate-950 border border-white/10 p-1 rounded-lg sm:rounded-xl text-current shadow-lg z-20">
+        <div className="absolute -bottom-2 -right-2 bg-slate-950 border border-white/10 p-1.5 rounded-xl text-current shadow-lg z-20">
             {subscriptionType === 'GYM' ? <Store size={14} className="sm:w-4 sm:h-4" /> : (isPremium ? <Star size={14} className="sm:w-4 sm:h-4" /> : <Map size={14} className="sm:w-4 sm:h-4" />)}
         </div>
       </button>
@@ -76,41 +83,35 @@ export default function ProfileHeader({
       {/* 2. DATOS DEL JUGADOR */}
       <div className="flex-1 min-w-0 flex flex-col justify-center py-1">
         
-        {/* BLOQUE SUPERIOR: NOMBRE + ESTADO PRO */}
-        <div className="flex flex-col lg:flex-row lg:items-center gap-y-2 gap-x-4 mb-2">
+        <div className="flex flex-col lg:flex-row lg:items-center gap-y-1 gap-x-4 mb-2">
             
-            {/* NOMBRE DE USUARIO - ARREGLADO */}
-            {/* Antes: text-4xl (se cortaba). Ahora: text-2xl en móvil, escala en PC */}
             <h1 className="text-2xl sm:text-3xl md:text-5xl font-black italic tracking-tighter text-white uppercase leading-none truncate pr-2" style={{ textShadow: '0 2px 10px rgba(0,0,0,0.5)' }}>
               {username}
             </h1>
 
-            {/* INFO DE USUARIO PRO */}
             {isPremium && (
-               <div className="flex items-center gap-2 sm:gap-3 animate-in fade-in slide-in-from-left-4 duration-700 lg:pl-4 lg:border-l-2 lg:border-white/10">
+               <div className="flex items-center gap-2 sm:gap-3 animate-in fade-in slide-in-from-left-4 duration-700 lg:pl-4 lg:border-l-2 lg:border-white/10 mt-1 lg:mt-0">
                   
-                  {/* LOGO */}
                   {gymData?.logo_url ? (
                      <img 
                         src={gymData.logo_url} 
                         alt="Gym Logo" 
-                        className="w-8 h-8 sm:w-10 sm:h-10 object-contain bg-slate-900/50 rounded-lg border border-white/10 shrink-0" 
+                        className="w-8 h-8 object-contain bg-slate-900/50 rounded-lg border border-white/10 shrink-0" 
                      />
                   ) : (
-                     <div className="w-8 h-8 sm:w-10 sm:h-10 bg-amber-500/10 rounded-lg flex items-center justify-center border border-amber-500/20 shrink-0">
-                        {subscriptionType === 'GYM' ? <Store size={16} className="text-amber-500 sm:w-5 sm:h-5" /> : <Crown size={16} className="text-amber-500 sm:w-5 sm:h-5" />}
+                     <div className="w-8 h-8 bg-amber-500/10 rounded-lg flex items-center justify-center border border-amber-500/20 shrink-0">
+                        {subscriptionType === 'GYM' ? <Store size={14} className="text-amber-500" /> : <Crown size={14} className="text-amber-500" />}
                      </div>
                   )}
 
-                  {/* TEXTO PRO */}
                   <div className="flex flex-col justify-center leading-tight min-w-0">
-                      <span className="text-amber-500 font-black uppercase tracking-widest text-[10px] sm:text-xs md:text-base whitespace-nowrap drop-shadow-sm truncate">
+                      <span className="text-amber-500 font-black uppercase tracking-widest text-[10px] sm:text-xs whitespace-nowrap drop-shadow-sm">
                          USUARIO PRO
                       </span>
                       
-                      <span className="text-slate-400 font-bold uppercase tracking-wider text-[9px] sm:text-[10px] md:text-[11px] truncate block max-w-[150px] sm:max-w-none">
+                      <span className="text-slate-400 font-bold uppercase tracking-wider text-[9px] sm:text-[10px] truncate block max-w-[150px]">
                          {subscriptionType === 'GYM' && gymData?.name 
-                            ? `POR ${gymData.name}` // Acortado texto en móvil "Patrocinado por" -> "Por"
+                            ? `POR ${gymData.name}` 
                             : 'PREMIUM ACTIVA'}
                       </span>
                   </div>
@@ -118,15 +119,13 @@ export default function ProfileHeader({
             )}
         </div>
 
-        {/* ETIQUETAS DE NIVEL / RANGO */}
-        <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-2 sm:mb-3">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-2">
             <div className="px-2 sm:px-3 py-1 rounded-lg bg-violet-600/10 border border-violet-500/30 text-violet-300 flex items-center gap-1.5 text-[9px] sm:text-[10px] font-black tracking-widest uppercase shadow-lg shadow-violet-900/20 backdrop-blur-md">
-                <Crown size={10} className="sm:w-3 sm:h-3" />
+                <Crown size={12} />
                 {rankTitle}
             </div>
         </div>
 
-        {/* BARRA DE XP */}
         <div className="w-full max-w-xl">
             <div className="flex justify-between text-[9px] sm:text-[10px] font-mono text-slate-500 uppercase tracking-wider mb-1">
                 <span>XP: {xp}</span>

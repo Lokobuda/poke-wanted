@@ -3,7 +3,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { supabase } from '../../lib/supabase'
 import Link from 'next/link'
-// CAMBIO 1: Quitamos ScanLine, añadimos Gem
 import { ArrowLeft, Loader2, Search, ShieldCheck, Trash2, Gem } from 'lucide-react'
 import AddSlabModal from '@/app/components/AddSlabModal' 
 import ConfirmModal from '../components/ConfirmModal'
@@ -84,30 +83,31 @@ export default function GradedPage() {
   return (
     <div className="min-h-screen bg-[#020205] pb-20 font-sans text-white">
       
-      {/* HEADER */}
-      <div className="sticky top-0 z-40 bg-[#020205]/90 backdrop-blur-md border-b border-white/5 px-6 py-4">
-        <div className="max-w-[1600px] mx-auto flex flex-col xl:flex-row justify-between items-center gap-4">
-            <div className="flex items-center gap-4 w-full xl:w-auto">
+      {/* HEADER RESPONSIVE */}
+      <div className="sticky top-0 z-40 bg-[#020205]/90 backdrop-blur-md border-b border-white/5 px-4 md:px-6 py-4">
+        <div className="max-w-[1600px] mx-auto flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4">
+            
+            {/* TÍTULO Y BOTÓN ATRÁS */}
+            <div className="flex items-center gap-3 w-full xl:w-auto">
                 <Link href="/profile"><button className="p-2 rounded-full hover:bg-white/5 transition-colors"><ArrowLeft size={20} className="text-slate-400" /></button></Link>
                 <div>
-                    {/* CAMBIO 2: Header Dorado con Icono de Gema */}
-                    <h1 className="text-2xl font-black tracking-wider text-amber-400 flex items-center gap-3 drop-shadow-sm">
-                         <Gem className="text-amber-400 fill-amber-400/20" size={24} strokeWidth={2} /> 
+                    <h1 className="text-xl md:text-2xl font-black tracking-wider text-amber-400 flex items-center gap-2 drop-shadow-sm">
+                         <Gem className="text-amber-400 fill-amber-400/20" size={20} strokeWidth={2} /> 
                          CÁMARA ACORAZADA
                     </h1>
                 </div>
             </div>
 
-            <div className="flex flex-col md:flex-row gap-3 items-center w-full xl:w-auto justify-end">
-                {/* Filtros */}
-                <div className="flex bg-[#0f0f13] border border-white/5 rounded-full p-1">
+            {/* FILTROS Y BÚSQUEDA */}
+            <div className="flex flex-col md:flex-row gap-3 items-start md:items-center w-full xl:w-auto xl:justify-end overflow-x-auto pb-2 md:pb-0 scrollbar-hide">
+                <div className="flex bg-[#0f0f13] border border-white/5 rounded-full p-1 shrink-0">
                     {availableGraders.map(grader => (
                         <button 
                             key={grader}
                             onClick={() => setFilterGrader(grader)}
-                            className={`px-4 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider transition-all ${
+                            className={`px-3 md:px-4 py-1.5 rounded-full text-[9px] md:text-[10px] font-bold uppercase tracking-wider transition-all whitespace-nowrap ${
                                 filterGrader === grader 
-                                ? 'bg-amber-500 text-black shadow-[0_0_15px_rgba(245,158,11,0.4)]' // Botón activo dorado
+                                ? 'bg-amber-500 text-black shadow-[0_0_15px_rgba(245,158,11,0.4)]' 
                                 : 'text-slate-500 hover:text-slate-300'
                             }`}
                         >
@@ -116,23 +116,23 @@ export default function GradedPage() {
                     ))}
                 </div>
 
-                <div className="flex gap-2">
+                <div className="flex gap-2 w-full md:w-auto">
                     <select 
                         value={filterGradeNum}
                         onChange={(e) => setFilterGradeNum(e.target.value)}
-                        className="bg-[#0f0f13] border border-white/5 rounded-full py-1.5 pl-3 pr-8 text-[10px] font-bold text-slate-300 uppercase focus:outline-none focus:border-amber-500/50"
+                        className="bg-[#0f0f13] border border-white/5 rounded-full py-1.5 pl-3 pr-8 text-[9px] md:text-[10px] font-bold text-slate-300 uppercase focus:outline-none focus:border-amber-500/50 flex-1 md:flex-none"
                     >
                         {availableGrades.map(g => <option key={g} value={g}>{g}</option>)}
                     </select>
 
-                    <div className="relative">
+                    <div className="relative flex-1 md:flex-none">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={12} />
                         <input 
                             type="text" 
                             placeholder="BUSCAR..." 
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            className="bg-[#0f0f13] border border-white/5 rounded-full py-1.5 pl-8 pr-4 text-[10px] text-white font-bold uppercase focus:outline-none focus:border-amber-500/50 w-32 transition-all placeholder:text-slate-600"
+                            className="bg-[#0f0f13] border border-white/5 rounded-full py-1.5 pl-8 pr-4 text-[9px] md:text-[10px] text-white font-bold uppercase focus:outline-none focus:border-amber-500/50 w-full md:w-32 transition-all placeholder:text-slate-600"
                         />
                     </div>
                 </div>
@@ -140,19 +140,19 @@ export default function GradedPage() {
         </div>
       </div>
 
-      <div className="max-w-[1600px] mx-auto px-6 py-8">
+      <div className="max-w-[1600px] mx-auto px-4 md:px-6 py-4 md:py-8">
         {filteredSlabs.length === 0 ? (
            <div className="flex flex-col items-center justify-center py-20 opacity-30"><ShieldCheck size={48} /><p className="mt-4 text-sm font-mono">SIN DATOS</p></div>
         ) : (
-            // GRID
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-8">
+            // GRID RESPONSIVE
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-8">
                 {filteredSlabs.map((slab) => (
                     <div key={slab.id} className="relative group/wrapper z-0 hover:z-10">
                         <Slab slab={slab} />
                         
                         <button 
                             onClick={() => setSlabToDelete(slab.id)}
-                            className="absolute top-4 right-4 z-[100] bg-red-500/80 text-white p-1.5 rounded-full opacity-0 group-hover/wrapper:opacity-100 transition-all hover:bg-red-600 backdrop-blur-md"
+                            className="absolute top-2 right-2 md:top-4 md:right-4 z-[100] bg-red-500/80 text-white p-1.5 rounded-full md:opacity-0 group-hover/wrapper:opacity-100 transition-all hover:bg-red-600 backdrop-blur-md"
                         >
                             <Trash2 size={14} />
                         </button>
