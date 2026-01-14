@@ -15,14 +15,16 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-// 1. METADATA: Título, descripción y manifiesto
+// --- ESTA ES LA LÍNEA MÁGICA QUE ARREGLA EL ERROR ---
+export const dynamic = "force-dynamic"; 
+// ----------------------------------------------------
+
 export const metadata: Metadata = {
   title: "PokéBinders",
   description: "Gestiona tu colección de cartas con estilo Gengar",
   manifest: "/manifest.json",
 };
 
-// 2. VIEWPORT: Aquí va el color de la barra del móvil (Nuevo estándar Next.js)
 export const viewport: Viewport = {
   themeColor: "#020617",
 };
