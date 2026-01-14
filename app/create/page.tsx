@@ -4,12 +4,12 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '../../lib/supabase'
-import { Search, Save, Loader2, Check, Plus, ArrowDown, Info, Lock, Store, ArrowLeft, Star } from 'lucide-react'
+import { Search, Save, Loader2, Check, Plus, ArrowDown, Info, ArrowLeft, Crown, Zap, CheckCircle2 } from 'lucide-react'
 import { toast } from 'sonner'
 import TutorialOverlay, { TutorialStep } from '../components/TutorialOverlay'
-import { RANKS, STARTER_PATHS } from '../../lib/ranks'
+import { STARTER_PATHS } from '../../lib/ranks'
 
-// --- PASOS DEL TUTORIAL ACTUALIZADOS CON EL MISTERIO ---
+// --- PASOS DEL TUTORIAL ---
 const CREATE_STEPS: TutorialStep[] = [
   {
     targetId: 'tour-create-input',
@@ -32,9 +32,8 @@ const CREATE_STEPS: TutorialStep[] = [
     action: 'Casi listo...',
     position: 'top'
   },
-  // --- NUEVO PASO FINAL MISTERIOSO ---
   {
-    targetId: 'tour-save-btn', // Apuntamos al mismo sitio o al centro
+    targetId: 'tour-save-btn',
     title: '🤫 Secretos por descubrir',
     text: 'Aún queda algún secreto por descubrir, como la info oculta de las cartas o cómo añadir joyas gradeadas a tu Cámara Acorazada... pero queremos dejarte un poco de misterio para que lo vayas descubriendo tú mismo.',
     action: '¡A coleccionar!',
@@ -44,7 +43,6 @@ const CREATE_STEPS: TutorialStep[] = [
 
 const PriceBadge = ({ price }: { price: number | null }) => {
   const hasPrice = price !== null && price !== undefined && price > 0;
-  
   const formattedPrice = hasPrice 
     ? new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(price)
     : '---';
@@ -78,27 +76,21 @@ const Toast = ({ message, type, onClose }: { message: string, type: 'error' | 's
 type CardVariant = { 
   id: string; 
   image_url: string; 
-  cards: { 
-    name: string; 
-    set_id: string; 
-    price_trend: number | null; 
-    price_currency: string; 
-  } 
+  cards: { name: string; set_id: string; price_trend: number | null; price_currency: string; } 
 }
-
 type SetData = { id: string; name: string; release_date: string }
 type CollectionMode = 'OFFICIAL' | 'MANUAL' | 'SMART'
 
 export default function CreateAlbumPage() {
   const router = useRouter()
   
-  // ESTADOS DE NEGOCIO
+  // ESTADOS
   const [checkingPerms, setCheckingPerms] = useState(true)
   const [canCreate, setCanCreate] = useState(true)
   const [userStatus, setUserStatus] = useState<'INDIE' | 'GYM'>('INDIE')
   const [currentAlbums, setCurrentAlbums] = useState(0)
 
-  // ESTADOS DE LA APP
+  // ESTADOS APP
   const [mode, setMode] = useState<CollectionMode>('OFFICIAL')
   const [albumName, setAlbumName] = useState('')
   const [user, setUser] = useState<any>(null)
@@ -123,6 +115,9 @@ export default function CreateAlbumPage() {
   const [hasMoreCards, setHasMoreCards] = useState(false)
   
   const pageSize = 50
+  
+  // --- LÍMITE REAL DE ÁLBUMES ---
+  const FREE_LIMIT = 1
 
   useEffect(() => {
     checkPermissions()
@@ -157,12 +152,19 @@ export default function CreateAlbumPage() {
          setBuddyImage(img)
       }
 
-      const { count } = await supabase.from('albums').select('*', { count: 'exact', head: true }).eq('user_id', session.user.id)
+      // --- CONTEO DIRECTO ---
+      const { count } = await supabase
+        .from('albums')
+        .select('id', { count: 'exact' }) // Sin head:true para evitar errores
+        .eq('user_id', session.user.id)
+      
       const totalAlbums = count || 0
       setCurrentAlbums(totalAlbums)
 
       const tutorialPhase = localStorage.getItem('tutorial_phase')
-      const allowCreate = status === 'GYM' || totalAlbums < 1 || tutorialPhase === 'creating'
+      
+      // Permitir si es GYM, Tutorial, o tiene menos de 1 álbum.
+      const allowCreate = status === 'GYM' || totalAlbums < FREE_LIMIT || tutorialPhase === 'creating'
       setCanCreate(allowCreate)
 
       if (tutorialPhase === 'creating') {
@@ -254,6 +256,7 @@ export default function CreateAlbumPage() {
       if (localStorage.getItem('tutorial_phase') === 'creating') {
           localStorage.removeItem('tutorial_phase')
           localStorage.setItem('tutorial_completed', 'true')
+          await supabase.from('profiles').update({ has_completed_tutorial: true }).eq('id', user.id)
           setToast({ msg: '¡Tutorial completado!', type: 'success' })
       } else {
           setToast({ msg: '¡Colección creada con éxito!', type: 'success' })
@@ -267,11 +270,69 @@ export default function CreateAlbumPage() {
 
   if (checkingPerms) return <div className="min-h-screen bg-slate-950 flex items-center justify-center"><Loader2 className="animate-spin text-violet-500" /></div>
 
-  if (!canCreate) { return ( <div className="min-h-screen bg-slate-950 text-white p-8 flex flex-col items-center justify-center text-center"><div className="max-w-2xl w-full bg-slate-900 border border-white/10 p-10 rounded-[40px] shadow-2xl relative overflow-hidden"><Link href="/profile"><button className="text-slate-500 hover:text-white text-xs font-bold uppercase tracking-widest transition-colors flex items-center justify-center gap-2 mx-auto"><ArrowLeft size={14} /> Volver a mi colección</button></Link><div className="mt-8 text-slate-400">Has alcanzado el límite de álbumes gratuitos.</div></div></div> ) }
+  // --- AQUÍ ESTÁ LA PANTALLA DE BLOQUEO CORREGIDA ---
+  if (!canCreate) { 
+      return ( 
+        <div className="min-h-screen bg-slate-950 text-white p-8 flex flex-col items-center justify-center text-center font-sans">
+            <div className="max-w-md w-full relative z-10 animate-in fade-in slide-in-from-bottom-8 duration-700">
+                {/* MODIFICACIÓN IMPORTANTE: 
+                   1. Quitamos 'overflow-hidden' del contenedor principal para que la corona sobresalga.
+                   2. Añadimos un div interno (absolute inset-0) que SÍ tiene 'overflow-hidden' para gestionar el fondo desenfocado.
+                */}
+                <div className="bg-slate-900/80 backdrop-blur-xl border border-amber-500/30 rounded-3xl p-8 shadow-[0_0_50px_rgba(245,158,11,0.15)] text-center relative">
+                    
+                    {/* FONDO RECORTADO (Para que la mancha de luz no se salga, pero la corona sí) */}
+                    <div className="absolute inset-0 rounded-3xl overflow-hidden pointer-events-none">
+                       <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/10 blur-[60px] rounded-full"/>
+                    </div>
+                    
+                    {/* CONTENIDO (La corona ahora flota libremente gracias al z-index y a que el padre no corta) */}
+                    <div className="relative z-10">
+                        <div className="w-20 h-20 bg-gradient-to-br from-amber-400 to-orange-600 rounded-2xl mx-auto -mt-16 mb-6 flex items-center justify-center shadow-lg shadow-amber-900/40 rotate-3 transform hover:rotate-6 transition-transform">
+                            <Crown className="text-white drop-shadow-md" size={40} strokeWidth={2.5} />
+                        </div>
+
+                        <h1 className="text-2xl font-black text-white italic tracking-tight mb-2 uppercase">Límite Alcanzado</h1>
+                        <p className="text-slate-400 text-sm mb-8 leading-relaxed">
+                            Has utilizado tu <span className="text-white font-bold">ranura de creación gratuita</span>. Para añadir más colecciones, necesitas el pase PRO.
+                        </p>
+
+                        <div className="bg-slate-950/50 rounded-xl p-5 mb-8 text-left space-y-3 border border-white/5">
+                            {/* LISTA DE BENEFICIOS ACTUALIZADA */}
+                            <div className="flex items-center gap-3">
+                                <CheckCircle2 size={16} className="text-emerald-400" />
+                                <span className="text-slate-200 text-xs font-medium">Álbumes ilimitados</span>
+                            </div>
+                            <div className="flex items-center gap-3">
+                                <CheckCircle2 size={16} className="text-emerald-400" />
+                                <span className="text-slate-200 text-xs font-medium">Acceso a la Cámara acorazada</span>
+                            </div>
+                            <div className="flex items-center gap-3">
+                                <CheckCircle2 size={16} className="text-emerald-400" />
+                                <span className="text-slate-200 text-xs font-medium">Acceso al Almacén sellado</span>
+                            </div>
+                        </div>
+
+                        <div className="space-y-3">
+                            <button onClick={() => router.push('/profile?open_pro=true')} className="w-full group relative bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-slate-950 font-black py-4 rounded-xl uppercase tracking-widest text-sm transition-all hover:scale-[1.02] active:scale-95 shadow-lg shadow-amber-900/20 overflow-hidden flex items-center justify-center gap-2">
+                                <Zap size={18} fill="currentColor" /> DESBLOQUEAR PRO
+                            </button>
+                            <Link href="/profile">
+                                <button className="w-full py-3 text-slate-500 hover:text-white text-xs font-bold uppercase tracking-widest transition-colors flex items-center justify-center gap-2">
+                                    <ArrowLeft size={14} /> VOLVER A MI COLECCIÓN
+                                </button>
+                            </Link>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div> 
+      ) 
+  }
 
   return (
     <div className="min-h-screen bg-slate-950 pb-40 text-white font-sans">
-      {toastData && <div className="fixed top-24 left-1/2 -translate-x-1/2 z-[100]"><div className={`px-6 py-3 rounded-full border ${toastData.type==='error'?'bg-red-950 border-red-500':'bg-green-950 border-green-500'}`}>{toastData.msg}</div></div>}
+      {toastData && <Toast message={toastData.msg} type={toastData.type} onClose={() => setToast(null)} />}
       
       {showTutorial && (
           <TutorialOverlay 
@@ -351,7 +412,7 @@ export default function CreateAlbumPage() {
             <div className="flex flex-col">
                <span className="text-[10px] text-slate-400 font-bold uppercase">Selección</span>
                <span className="text-xl font-black text-white">{mode==='OFFICIAL'?(selectedSet?'1 SET':'-'):(mode==='SMART'?'AUTO':selectedCards.size)}</span>
-               {userStatus === 'INDIE' && <span className="text-[9px] text-orange-400 font-mono">CAPACIDAD: {currentAlbums}/1</span>}
+               {userStatus === 'INDIE' && <span className="text-[9px] text-orange-400 font-mono">CAPACIDAD: {currentAlbums}/{FREE_LIMIT}</span>}
             </div>
             
             {/* ID DEL BOTÓN PARA EL TUTORIAL */}

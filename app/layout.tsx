@@ -1,8 +1,9 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import Navbar from "./components/Navbar";
-import { Toaster } from "sonner"; // Importamos librería
+import { Toaster } from "sonner"; 
+import InstallButton from "./components/InstallButton"; 
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -14,9 +15,16 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+// 1. METADATA: Título, descripción y manifiesto
 export const metadata: Metadata = {
-  title: "Stitch Labs - Pokemon Collector",
+  title: "PokéBinders",
   description: "Gestiona tu colección de cartas con estilo Gengar",
+  manifest: "/manifest.json",
+};
+
+// 2. VIEWPORT: Aquí va el color de la barra del móvil (Nuevo estándar Next.js)
+export const viewport: Viewport = {
+  themeColor: "#020617",
 };
 
 export default function RootLayout({
@@ -28,12 +36,15 @@ export default function RootLayout({
     <html lang="es">
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased bg-slate-950`}>
         <Navbar />
-       <div className="min-h-screen pb-10">
-  {children}
-</div>
+        
+        <div className="min-h-screen pb-10">
+          {children}
+        </div>
 
-        {/* 2. COMPONENTE DE NOTIFICACIONES GLOBAL */}
-        {/* Cambiado a 'top-center' para que salga arriba en el medio */}
+        {/* BOTÓN DE DESCARGA PWA */}
+        <InstallButton /> 
+
+        {/* NOTIFICACIONES */}
         <Toaster 
           theme="dark" 
           position="top-center" 
@@ -41,11 +52,11 @@ export default function RootLayout({
           closeButton
           toastOptions={{
             style: {
-              background: '#0f172a', // Coincide con bg-slate-950
-              border: '1px solid #334155', // Borde sutil
+              background: '#0f172a', 
+              border: '1px solid #334155', 
               color: 'white',
             },
-            className: 'font-sans' // Hereda la fuente Geist
+            className: 'font-sans' 
           }}
         />
       </body>

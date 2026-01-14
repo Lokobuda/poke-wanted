@@ -1,0 +1,20 @@
+0 verbose cli /usr/local/bin/node /usr/local/bin/npm
+1 info using npm@11.6.2
+2 info using node@v24.12.0
+3 silly config load:file:/usr/local/lib/node_modules/npm/npmrc
+4 silly config load:file:/Users/carlosbello/Documents/poke-wanted/.npmrc
+5 silly config load:file:/Users/carlosbello/.npmrc
+6 silly config load:file:/usr/local/etc/npmrc
+7 verbose title npm view @supabase/auth-helpers-nextjs description dist-tags.latest homepage version time
+8 verbose argv "view" "--json" "--" "@supabase/auth-helpers-nextjs" "description" "dist-tags.latest" "homepage" "version" "time"
+9 verbose logfile logs-max:10 dir:/Users/carlosbello/Documents/poke-wanted/.npm-cache/_logs/2026-01-12T16_53_28_822Z-
+10 verbose logfile /Users/carlosbello/Documents/poke-wanted/.npm-cache/_logs/2026-01-12T16_53_28_822Z-debug-0.log
+11 silly logfile start cleaning logs, removing 1 files
+12 silly logfile done cleaning log files
+13 http fetch GET 200 https://registry.npmjs.org/@supabase%2fauth-helpers-nextjs 368ms (cache revalidated)
+14 verbose cwd /Users/carlosbello/Documents/poke-wanted
+15 verbose os Darwin 25.2.0
+16 verbose node v24.12.0
+17 verbose npm  v11.6.2
+18 verbose exit 0
+19 info ok

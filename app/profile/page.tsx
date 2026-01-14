@@ -1,15 +1,14 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation' 
 import { supabase } from '../../lib/supabase'
 import { 
-  Loader2, ArrowLeft, Disc, Share2,
+  Loader2, Disc, Share2,
   CheckCircle2, X, Sparkles, ChevronDown, ChevronLeft, ChevronRight,
   Layers, BarChart3, Trophy, Target, Filter, Search, FolderOpen, 
-  ShieldCheck, Trash2, Package, Pencil, Lock, 
-  // IMPORTS
-  Ticket, Crown, Zap, CreditCard 
+  ShieldCheck, Package, Lock, 
+  Ticket, CreditCard, Zap, ArrowLeft, Copy
 } from 'lucide-react'
 import { toPng } from 'html-to-image'
 import download from 'downloadjs'
@@ -33,62 +32,23 @@ const RARITY_TRANSLATIONS: Record<string, string> = {
   'Rare Secret': 'Secreta Rara', 'Classic Collection': 'Colección Clásica', 'Radiant Rare': 'Radiante'
 }
 
-// --- PASOS DEL TUTORIAL (CORREGIDOS Y COMPLETOS) ---
 const PROFILE_STEPS: TutorialStep[] = [
-  { 
-    targetId: 'tour-start', 
-    title: '¡Hola, coleccionista! 👋', 
-    text: 'Veo que acabas de aterrizar. Tu perfil es tu cuartel general.', 
-    action: '¡Dale caña!', 
-    position: 'center' 
-  },
-  { 
-    targetId: 'tour-rank', 
-    title: 'Tu Nivel de Prestigio 👑', 
-    text: 'Sube de nivel consiguiendo cartas y completando sets para demostrar quién manda.', 
-    action: 'Entendido', 
-    position: 'bottom' 
-  },
-  { 
-    targetId: 'tour-stats', // ID AÑADIDO AL HTML DE ESTADÍSTICAS
-    title: 'Tus Estadísticas 📊', 
-    text: 'Un vistazo rápido a tu progreso global. Cantidad total de cartas, puntuación Hunter y porcentaje total completado.', 
-    action: 'Siguiente', 
-    position: 'bottom' 
-  },
-  { 
-    targetId: 'tour-projects', // ID AÑADIDO AL HTML DE PROYECTOS
-    title: 'Centro de Proyectos 📁', 
-    text: 'Aquí viven tus Álbumes, tu Cámara Acorazada (para cartas gradeadas) y tu Almacén Sellado (para llevar control de tus productos sellados).', 
-    action: '¡Genial!', 
-    position: 'top' 
-  },
-  { 
-    targetId: 'tour-wanted', 
-    title: 'Wanted List 🎯', 
-    text: 'Selecciona las cartas que te faltan para generar un póster de búsqueda y compartirlo en stories o con tu tienda favorita.', 
-    action: '¡Entendido!', 
-    position: 'top' 
-  },
-  { 
-    targetId: 'tour-create-btn', 
-    title: 'Tu Primera Misión 🚀', 
-    text: 'Haz clic en este botón para crear tu primera colección.', 
-    action: 'Vamos allá', 
-    position: 'bottom' 
-  }
+  { targetId: 'tour-start', title: '¡Hola, coleccionista! 👋', text: 'Veo que acabas de aterrizar. Tu perfil es tu cuartel general.', action: '¡Dale caña!', position: 'center' },
+  { targetId: 'tour-rank', title: 'Tu Nivel de Prestigio 👑', text: 'Sube de nivel consiguiendo cartas y completando sets para demostrar quién manda.', action: 'Entendido', position: 'bottom' },
+  { targetId: 'tour-stats', title: 'Tus Estadísticas 📊', text: 'Un vistazo rápido a tu progreso global. Cantidad total de cartas, puntuación Hunter y porcentaje total completado.', action: 'Siguiente', position: 'bottom' },
+  { targetId: 'tour-projects', title: 'Centro de Proyectos 📁', text: 'Aquí viven tus Álbumes, tu Cámara Acorazada (para cartas gradeadas) y tu Almacén Sellado.', action: '¡Genial!', position: 'top' },
+  { targetId: 'tour-wanted', title: 'Wanted List 🎯', text: 'Selecciona las cartas que te faltan para generar un póster de búsqueda y compartirlo.', action: '¡Entendido!', position: 'top' },
+  { targetId: 'tour-create-btn', title: 'Tu Primera Misión 🚀', text: 'Haz clic en el botón de crear álbum para empezar tu primera colección.', action: 'Vamos allá', position: 'bottom' }
 ]
 
-export default function ProfilePage() {
+function ProfileContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   
-  // ESTADOS PRINCIPALES
   const [loading, setLoading] = useState(true)
   const [user, setUser] = useState<any>(null)
   const [dbProfile, setDbProfile] = useState<any>(null) 
   
-  // GAMIFICACIÓN
   const [collectorScore, setCollectorScore] = useState(0)
   const [currentRank, setCurrentRank] = useState<any>(RANKS[0])
   const [nextRank, setNextRank] = useState<any>(RANKS[1])
@@ -96,21 +56,22 @@ export default function ProfilePage() {
   const [subscriptionType, setSubscriptionType] = useState<'INDIE' | 'GYM' | 'PRO'>('INDIE')
   const [gymData, setGymData] = useState<{name: string, logo_url?: string | null} | null>(null)
   
-  // ESTADOS UI
+  // NUEVO ESTADO: Ofertas de la tienda
+  const [gymOffers, setGymOffers] = useState<any[]>([])
+  
   const [showStarterSelector, setShowStarterSelector] = useState(false)
   const [showTutorial, setShowTutorial] = useState(false)
+  const isTutorialChecked = useRef(false) 
   
-  // HUB DE MEMBRESÍA
   const [isRedeemOpen, setIsRedeemOpen] = useState(false)
   const [redeemMode, setRedeemMode] = useState<'CODE' | 'SUBSCRIPTION'>('SUBSCRIPTION')
   const [redeemCode, setRedeemCode] = useState('')
   const [isRedeeming, setIsRedeeming] = useState(false)
+  const [isSubscribing, setIsSubscribing] = useState(false)
   
-  // DATOS
   const [stats, setStats] = useState({ totalCards: 0, totalAlbums: 0, globalCompletion: 0, projectsProgress: [] as any[], gradedCount: 0 })
   const [missingCards, setMissingCards] = useState<any[]>([])
 
-  // FILTROS
   const [filterSet, setFilterSet] = useState<string>('ALL')
   const [filterRarity, setFilterRarity] = useState<string>('ALL')
   const [filterAlbum, setFilterAlbum] = useState<string>('ALL')
@@ -118,7 +79,6 @@ export default function ProfilePage() {
   const [visibleCount, setVisibleCount] = useState(50)
   const [selectedForOrder, setSelectedForOrder] = useState<string[]>([])
   
-  // PÓSTER
   const [isSelectorOpen, setIsSelectorOpen] = useState(false)
   const [isPosterMode, setIsPosterMode] = useState(false)
   const [posterPage, setPosterPage] = useState(0)
@@ -128,11 +88,47 @@ export default function ProfilePage() {
   const [albumToDelete, setAlbumToDelete] = useState<string | null>(null)
   const [isDeletingAlbum, setIsDeletingAlbum] = useState(false)
   
-  useEffect(() => { 
-      fetchProfileData() 
-  }, [searchParams])
+  useEffect(() => {
+    const checkTutorial = async () => {
+        if (isTutorialChecked.current) return;
+        const localCompleted = typeof window !== 'undefined' ? localStorage.getItem('tutorial_completed') === 'true' : false
+        if (localCompleted) { isTutorialChecked.current = true; return; }
+        const { data: { session } } = await supabase.auth.getSession()
+        if (session) {
+            const { data: profiles } = await supabase.from('profiles').select('has_completed_tutorial, starter_gen').eq('id', session.user.id).limit(1)
+            const profile = profiles?.[0]
+            if (profile?.has_completed_tutorial) { localStorage.setItem('tutorial_completed', 'true') } 
+            else if (profile?.starter_gen && !profile?.has_completed_tutorial) { setShowTutorial(true) }
+        }
+        isTutorialChecked.current = true;
+    }
+    checkTutorial()
+  }, [])
 
-  // LÓGICA MEMOIZADA (Siempre antes del return condicional)
+  useEffect(() => {
+    if (!searchParams) return;
+    const openPro = searchParams.get('open_pro')
+    if (openPro === 'true') { setIsRedeemOpen(true); router.replace('/profile', { scroll: false }) }
+    
+    // GESTIÓN RETORNO STRIPE
+    const paymentStatus = searchParams.get('payment')
+    if (paymentStatus === 'success') {
+        toast.success('¡Bienvenido al Club PRO!', { description: 'Tu suscripción se ha activado correctamente.' })
+        router.replace('/profile', { scroll: false })
+        setTimeout(() => window.location.reload(), 1500)
+    } else if (paymentStatus === 'cancelled') {
+        toast.info('Proceso de pago cancelado')
+        router.replace('/profile', { scroll: false })
+    }
+  }, [searchParams, router])
+
+  useEffect(() => { 
+      let mounted = true; 
+      const runFetch = async () => { await fetchProfileData(mounted) }
+      runFetch()
+      return () => { mounted = false }
+  }, [searchParams]) 
+
   const uniqueSets = useMemo(() => { const sets = missingCards.map(c => ({ id: c.setId, name: c.setName })); const unique = sets.filter((v, i, a) => a.findIndex(t => t.id === v.id) === i); return unique.sort((a, b) => a.name.localeCompare(b.name)) }, [missingCards])
   const uniqueRarities = useMemo(() => { return [...new Set(missingCards.map(c => c.rarity))].filter(Boolean).sort() }, [missingCards])
   const filteredCards = useMemo(() => { return missingCards.filter(card => { const matchSet = filterSet === 'ALL' || card.setId === filterSet; const matchRarity = filterRarity === 'ALL' || card.rarity === filterRarity; const matchAlbum = filterAlbum === 'ALL' || card.albumIds.includes(filterAlbum); const matchSearch = card.name.toLowerCase().includes(searchQuery.toLowerCase()) || card.setName.toLowerCase().includes(searchQuery.toLowerCase()); return matchSet && matchRarity && matchAlbum && matchSearch }) }, [missingCards, filterSet, filterRarity, filterAlbum, searchQuery])
@@ -142,40 +138,56 @@ export default function ProfilePage() {
   const handleOpenPosterMode = () => { if (selectedForOrder.length === 0) return toast.warning("Selecciona al menos una carta."); setPosterPage(0); setIsPosterMode(true) }
   const handleInteractiveDownload = async (totalPages: number) => { if (isDownloading) return; setIsDownloading(true); setDownloadSuccess(false); try { const initialPage = posterPage; for (let i = 0; i < totalPages; i++) { setPosterPage(i); await new Promise(resolve => setTimeout(resolve, 1000)); const posterNode = document.getElementById('visible-poster'); if (posterNode) { const dataUrl = await toPng(posterNode, { quality: 1.0, pixelRatio: 2, cacheBust: true }); setFlashActive(true); setTimeout(() => setFlashActive(false), 150); download(dataUrl, `pokebinders-wanted-${username}-${i + 1}.png`); await new Promise(resolve => setTimeout(resolve, 500)); } } setPosterPage(initialPage); setDownloadSuccess(true); setTimeout(() => { setDownloadSuccess(false); setIsDownloading(false) }, 3000); } catch (error) { console.error('Error:', error); toast.error('Error al descargar póster'); setIsDownloading(false) } }
 
-  const fetchProfileData = async () => {
+  const fetchProfileData = async (mounted: boolean = true) => {
     try {
       const { data: { session } } = await supabase.auth.getSession()
-      if (!session) return
+      if (!session || !mounted) return
       setUser(session.user)
 
-      const { data: profile, error: profileError } = await supabase.from('profiles').select(`*, gyms (name, logo_url)`).eq('id', session.user.id).single()
+      const { data: profiles, error: profileError } = await supabase.from('profiles').select(`*, gyms (name, logo_url)`).eq('id', session.user.id).limit(1)
+      const profile = profiles?.[0]
       if (profileError && profileError.code !== 'PGRST116') toast.error(`Error: ${profileError.message}`)
+      if (!mounted) return
       setDbProfile(profile) 
 
       let currentStatus: 'INDIE' | 'GYM' | 'PRO' = 'INDIE'; 
       if (profile) {
-        if (profile.starter_gen && profile.starter_type) {
-           setStarterData({ gen: profile.starter_gen, type: profile.starter_type })
-           if (!localStorage.getItem('tutorial_completed')) setShowTutorial(true)
-        } else { setShowStarterSelector(true) }
+        if (profile.starter_gen && profile.starter_type) { setStarterData({ gen: profile.starter_gen, type: profile.starter_type }) } else { setShowStarterSelector(true) }
         
-        if (profile.subscription_status === 'GYM') {
-            currentStatus = 'GYM';
-            if (profile.gyms) { const g: any = profile.gyms; setGymData({ name: g.name, logo_url: g.logo_url }) }
-        } else if (profile.subscription_status === 'PRO') { currentStatus = 'PRO'; }
+        if (profile.subscription_status === 'GYM') { 
+          currentStatus = 'GYM'; 
+          if (profile.gyms) { 
+              const g: any = profile.gyms; 
+              setGymData({ name: g.name, logo_url: g.logo_url }) 
+          }
+          if (profile.gym_id) {
+              const { data: offers } = await supabase
+                .from('gym_offers')
+                .select('*')
+                .eq('gym_id', profile.gym_id)
+                .eq('is_active', true)
+              if (offers) setGymOffers(offers)
+          }
+
+        } else if (profile.subscription_status === 'PRO') { 
+            currentStatus = 'PRO'; 
+        }
       } else { setShowStarterSelector(true) }
-      
       setSubscriptionType(currentStatus)
 
       const { data: setsData } = await supabase.from('sets').select('id, name')
-      const setsMap = new Map(); setsData?.forEach((s: any) => setsMap.set(s.id, s.name))
+      const setsMap = new Map<string, string>(); setsData?.forEach((s: any) => setsMap.set(s.id, s.name))
+
       const { data: inventoryData } = await supabase.from('inventory').select('card_id, quantity_normal, quantity_holo, quantity_reverse').eq('user_id', session.user.id)
       const inventoryMap = new Map(); inventoryData?.forEach((item: any) => inventoryMap.set(item.card_id, item))
-      const { count: gradedCount } = await supabase.from('graded_cards').select('*', { count: 'exact', head: true }).eq('user_id', session.user.id)
-      const { count: sealedCount } = await supabase.from('sealed_products').select('*', { count: 'exact', head: true }).eq('user_id', session.user.id)
 
-      const totalGraded = gradedCount || 0; const totalSealed = sealedCount || 0
-      const gradedScoreBoost = totalGraded * 50; const sealedScoreBoost = totalSealed * 20 
+      const { count: gradedCount } = await supabase.from('graded_cards').select('id', { count: 'exact' }).eq('user_id', session.user.id)
+      const { count: sealedCount } = await supabase.from('sealed_products').select('id', { count: 'exact' }).eq('user_id', session.user.id)
+
+      const totalGraded = gradedCount || 0; 
+      const totalSealed = sealedCount || 0
+      const gradedScoreBoost = totalGraded * 50; 
+      const sealedScoreBoost = totalSealed * 20 
 
       const { data: albumsData } = await supabase.from('albums').select(`id, name, is_master_set, set_id, created_at, album_cards (acquired, card_variants (id, image_url, cards (name, set_id, collector_number, rarity)))`).eq('user_id', session.user.id).order('created_at', { ascending: false })
 
@@ -190,23 +202,17 @@ export default function ProfilePage() {
         const totalInAlbum = album.album_cards.length; let ownedInAlbum = 0
         album.album_cards.forEach((c: any) => {
           const variant = c.card_variants
-          if (variant) {
-            const invItem = inventoryMap.get(variant.id)
-            const globalTotal = (invItem?.quantity_normal || 0) + (invItem?.quantity_holo || 0) + (invItem?.quantity_reverse || 0)
-            if (globalTotal > 0) {
-                ownedInAlbum++; totalCardsOwned++ 
-                totalScore += getCardScore({ set_id: variant.cards.set_id, card_number: variant.cards.collector_number, rarity: variant.cards.rarity, name: variant.cards.name })
-            } else {
-                if (missingMap.has(variant.id)) { const existing = missingMap.get(variant.id); if (!existing.albumIds.includes(album.id)) existing.albumIds.push(album.id) } 
-                else { missingMap.set(variant.id, { id: variant.id, name: variant.cards.name, image: variant.image_url, number: variant.cards.collector_number, setId: variant.cards.set_id, setName: setsMap.get(variant.cards.set_id) || variant.cards.set_id, rarity: variant.cards.rarity, albumIds: [album.id] }) }
+          if (variant && variant.cards) {
+            const cardInfo = Array.isArray(variant.cards) ? variant.cards[0] : variant.cards;
+            if (cardInfo) {
+                const invItem = inventoryMap.get(variant.id)
+                const globalTotal = (invItem?.quantity_normal || 0) + (invItem?.quantity_holo || 0) + (invItem?.quantity_reverse || 0)
+                if (globalTotal > 0) { ownedInAlbum++; totalCardsOwned++; totalScore += getCardScore({ set_id: cardInfo.set_id, card_number: cardInfo.collector_number, rarity: cardInfo.rarity, name: cardInfo.name }) } 
+                else { if (missingMap.has(variant.id)) { const existing = missingMap.get(variant.id); if (!existing.albumIds.includes(album.id)) existing.albumIds.push(album.id) } else { missingMap.set(variant.id, { id: variant.id, name: cardInfo.name, image: variant.image_url, number: cardInfo.collector_number, setId: cardInfo.set_id, setName: setsMap.get(cardInfo.set_id) || cardInfo.set_id, rarity: cardInfo.rarity, albumIds: [album.id] }) } }
             }
           }
         })
-        if (totalInAlbum > 0) {
-           const percent = Math.round((ownedInAlbum / totalInAlbum) * 100)
-           projectsList.push({ id: album.id, name: album.name, type: album.is_master_set ? 'Oficial' : 'Personal', owned: ownedInAlbum, total: totalInAlbum, percent: percent, isLocked: false, setId: album.set_id })
-           totalSlotsTracked += totalInAlbum; totalOwnedInTracked += ownedInAlbum
-        }
+        if (totalInAlbum > 0) { const percent = Math.round((ownedInAlbum / totalInAlbum) * 100); projectsList.push({ id: album.id, name: album.name, type: album.is_master_set ? 'Oficial' : 'Personal', owned: ownedInAlbum, total: totalInAlbum, percent: percent, isLocked: false, setId: album.set_id }); totalSlotsTracked += totalInAlbum; totalOwnedInTracked += ownedInAlbum }
       })
 
       const finalScore = totalScore + gradedScoreBoost + sealedScoreBoost
@@ -217,24 +223,60 @@ export default function ProfilePage() {
       let rankIndex = 0; for (let i = 0; i < RANKS.length; i++) { if (finalScore >= RANKS[i].min) rankIndex = i }
       setCurrentRank(RANKS[rankIndex]); setNextRank(RANKS[rankIndex + 1] || null)
 
-    } catch (error) { console.error(error); toast.error('Error al cargar perfil') } finally { setLoading(false) }
+    } catch (error) { console.error(error); toast.error('Error al cargar perfil') } finally { if(mounted) setLoading(false) }
+  }
+
+  // --- LOGICA SUSCRIPCIÓN CORREGIDA (PLAN DE EMERGENCIA) ---
+  const handleSubscribe = async () => {
+    setIsSubscribing(true);
+    try {
+        // 1. OBTENEMOS EL TOKEN DE SESIÓN MANUALMENTE
+        const { data: { session } } = await supabase.auth.getSession();
+        const token = session?.access_token;
+
+        if (!token) {
+            throw new Error('No se encontró sesión activa. Por favor, recarga e inicia sesión.');
+        }
+
+        // 2. ENVIAMOS EL TOKEN EN LA CABECERA 'Authorization'
+        const response = await fetch('/api/checkout', { 
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}` // <--- ESTO ES LA CLAVE
+            }
+        });
+
+        if (!response.ok) {
+            const errorMsg = await response.text();
+            throw new Error(errorMsg || 'Error desconocido del servidor');
+        }
+
+        const data = await response.json();
+        
+        if (data.url) {
+            window.location.href = data.url;
+        } else {
+            throw new Error('No se recibió la URL de pago');
+        }
+    } catch (error: any) {
+        console.error(error);
+        toast.error('Error de pago', { description: error.message || 'Comprueba la consola para más detalles.' });
+        setIsSubscribing(false);
+    }
   }
 
   const handleRedeemCode = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!redeemCode.trim()) return
-    setIsRedeeming(true)
-    try {
-        const { data, error } = await supabase.rpc('claim_gym_access', { input_code: redeemCode.trim() }) 
-        if (error) throw error
-        if (data && data.success) {
-            const storeName = encodeURIComponent(data.store_name)
-            router.push(`/store-landing?code=${redeemCode.trim()}&redeemed=true`)
-        } else {
-            toast.error('Código inválido', { description: data?.error || 'Revisa el código.' })
-            setIsRedeeming(false)
-        }
-    } catch (err: any) { toast.error('Error', { description: err.message }); setIsRedeeming(false) }
+    e.preventDefault(); if (!redeemCode.trim()) return; setIsRedeeming(true)
+    try { const { data, error } = await supabase.rpc('claim_gym_access', { input_code: redeemCode.trim() }); if (error) throw error; if (data && data.success) { router.push(`/store-landing?code=${redeemCode.trim()}&redeemed=true`) } else { toast.error('Código inválido', { description: data?.error || 'Revisa el código.' }); setIsRedeeming(false) } } catch (err: any) { toast.error('Error', { description: err.message }); setIsRedeeming(false) }
+  }
+  
+  const handleCopyOffer = (code: string) => {
+    navigator.clipboard.writeText(code)
+    toast.success('¡Código copiado!', {
+        description: 'Muéstralo en caja o úsalo en la web.',
+        icon: '🎟️'
+    })
   }
 
   const getBuddyImage = () => {
@@ -247,15 +289,29 @@ export default function ProfilePage() {
 
   const handleConfirmDeleteAlbum = async () => { if (!albumToDelete) return; setIsDeletingAlbum(true); const { error } = await supabase.from('albums').delete().eq('id', albumToDelete); if (!error) setStats(prev => ({ ...prev, projectsProgress: prev.projectsProgress.filter(p => p.id !== albumToDelete), totalAlbums: Math.max(0, prev.totalAlbums - 1) })); setIsDeletingAlbum(false); setAlbumToDelete(null) }
   const handleStarterSelect = async (gen: string, type: string) => { const { data: { session } } = await supabase.auth.getSession(); if (!session) return; const cleanGen = gen.startsWith('gen') ? gen : `gen${gen}`; const { error } = await supabase.from('profiles').upsert({ id: session.user.id, starter_gen: cleanGen, starter_type: type }, { onConflict: 'id' }); if (!error) { setStarterData({ gen: cleanGen, type }); setShowStarterSelector(false); setShowTutorial(true); fetchProfileData() } }
-  const handleFinishTutorial = () => { localStorage.setItem('tutorial_phase', 'creating'); setShowTutorial(false); router.push('?step=create', { scroll: false }) }
-  const closeTutorialPermanently = () => { localStorage.setItem('tutorial_completed', 'true'); setShowTutorial(false) }
+
+  const handleFinishTutorial = async () => {
+    localStorage.setItem('tutorial_completed', 'true')
+    localStorage.setItem('tutorial_phase', 'creating')
+    setShowTutorial(false)
+    try { 
+        const { data: { session } } = await supabase.auth.getSession(); 
+        if (session) await supabase.from('profiles').update({ has_completed_tutorial: true }).eq('id', session.user.id) 
+    } catch (err) { console.log("Error guardando tutorial") }
+    router.push('/create', { scroll: false })
+  }
+
+  const closeTutorialPermanently = async () => { setShowTutorial(false); localStorage.setItem('tutorial_completed', 'true'); try { const { data: { session } } = await supabase.auth.getSession(); if (session) await supabase.from('profiles').update({ has_completed_tutorial: true }).eq('id', session.user.id) } catch (err) { console.log("Error guardando tutorial skip") } }
 
   if (loading) return <div className="min-h-screen bg-slate-950 flex items-center justify-center"><Loader2 className="animate-spin text-violet-500" /></div>
   
   const username = dbProfile?.username || user?.user_metadata?.username || user?.email?.split('@')[0] || 'Coleccionista'
   const buddyImage = getBuddyImage()
+  
+  const showPartnerSpace = subscriptionType === 'GYM' && gymData && gymOffers.length > 0
+  
+  const gridLayoutClass = showPartnerSpace ? 'md:grid-cols-2' : 'grid-cols-1'
 
-  // POSTER TEMPLATE
   const PosterTemplate = ({ cards, pageIndex, totalPages }: any) => (
     <div id="visible-poster" className="relative w-[400px] h-[711px] bg-[#0a0a0a] flex flex-col shadow-2xl border border-white/10 overflow-hidden isolate mx-auto transition-all duration-500">
         <div className={`absolute inset-0 bg-white z-[100] pointer-events-none transition-opacity duration-150 ease-out ${flashActive ? 'opacity-100' : 'opacity-0'}`} />
@@ -295,11 +351,10 @@ export default function ProfilePage() {
     <div className="min-h-screen bg-slate-950 text-white pb-20 relative font-sans">
       <StarterSelector isOpen={showStarterSelector} onSelect={handleStarterSelect} />
       {showTutorial && !showStarterSelector && (<TutorialOverlay steps={PROFILE_STEPS} onComplete={handleFinishTutorial} onClose={closeTutorialPermanently} />)}
+      
       <div className="fixed inset-0 pointer-events-none bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-violet-900/10 via-slate-950 to-black" />
 
       <div className="relative pt-12 px-6 max-w-5xl mx-auto">
-        
-        {/* HEADER */}
         <div className="flex flex-col md:flex-row md:items-start justify-between gap-4 mb-8">
             <div id="tour-rank" className="flex-1">
                 <ProfileHeader username={username} xp={collectorScore} nextLevelXp={nextRank?.min} rankTitle={currentRank.title} subscriptionType={subscriptionType} avatarUrl={buddyImage} gymData={gymData} onEditAvatar={() => setShowStarterSelector(true)} />
@@ -313,7 +368,7 @@ export default function ProfilePage() {
             )}
         </div>
 
-        {/* ESTADÍSTICAS (CON ID) */}
+        {/* STATS */}
         <div id="tour-stats" className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
             <div className="bg-slate-900/50 backdrop-blur border border-white/5 p-6 rounded-3xl flex flex-col justify-between h-40">
                 <div className="flex justify-between items-start"><div className="p-3 bg-violet-500/10 rounded-xl text-violet-400"><Layers size={24} /></div><span className="text-xs font-bold uppercase tracking-widest text-slate-500">Colección</span></div>
@@ -330,7 +385,7 @@ export default function ProfilePage() {
             </div>
         </div>
 
-        {/* PROYECTOS ACTIVOS (CON ID) */}
+        {/* PROYECTOS */}
         {stats.projectsProgress.length > 0 && (
           <div id="tour-projects" className="mb-12 animate-in slide-in-from-bottom-6 duration-700 delay-200">
              <h3 className="text-lg font-bold text-white mb-6 flex items-center gap-2"><CheckCircle2 size={18} className="text-violet-500"/> Proyectos Activos</h3>
@@ -371,24 +426,68 @@ export default function ProfilePage() {
           </div>
         )}
 
-        {/* WANTED LIST (RESTORED) */}
-        <div id="tour-wanted" className="bg-slate-900/40 backdrop-blur-xl rounded-[40px] p-10 border border-white/10 shadow-2xl relative overflow-hidden mt-12">
-          <div className="relative z-10">
-             <div className="flex justify-between items-center mb-10"><h3 className="text-3xl font-black text-white flex items-center gap-3"><Sparkles className="text-violet-400" /> Wanted List</h3></div>
-             {selectedForOrder.length === 0 ? (
-                 <button onClick={() => setIsSelectorOpen(true)} className="bg-violet-600 text-white px-8 py-3 rounded-xl font-bold text-sm">Seleccionar Cartas</button>
-             ) : (
-                 <div className="space-y-6">
-                    <div className="flex gap-4 overflow-x-auto pb-4">{missingCards.filter(c => selectedForOrder.includes(c.id)).map(c => (<img key={c.id} src={c.image} className="h-32 rounded-lg shadow-lg" />))}</div>
-                    <button onClick={handleOpenPosterMode} className="w-full py-4 bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white font-black rounded-xl uppercase tracking-widest"><Share2 size={16} className="inline mr-2" /> Crear Póster</button>
-                 </div>
-             )}
-          </div>
-        </div>
+        {/* --- GRID MIXTO: WANTED LIST + PARTNER SPACE --- */}
+        <div className={`grid grid-cols-1 ${gridLayoutClass} gap-6 mb-12 auto-rows-fr`}>
+            
+            {/* COLUMNA WANTED LIST */}
+            <div id="tour-wanted" className="bg-slate-900/40 backdrop-blur-xl rounded-[40px] p-10 border border-white/10 shadow-2xl relative overflow-hidden flex flex-col h-full">
+                <div className="relative z-10 flex-1 flex flex-col">
+                    <div className="flex justify-between items-center mb-10"><h3 className="text-3xl font-black text-white flex items-center gap-3"><Sparkles className="text-violet-400" /> Wanted List</h3></div>
+                    {selectedForOrder.length === 0 ? (
+                        <div className="flex-1 flex flex-col items-center justify-center py-8">
+                             <p className="text-slate-400 mb-6 text-center text-sm">No tienes cartas en busca y captura.</p>
+                             <button onClick={() => setIsSelectorOpen(true)} className="bg-violet-600 text-white px-8 py-3 rounded-xl font-bold text-sm hover:scale-105 transition-transform">Seleccionar Cartas</button>
+                        </div>
+                    ) : (
+                        <div className="space-y-6 flex-1 flex flex-col justify-end">
+                            <div className="flex gap-4 overflow-x-auto pb-4">{missingCards.filter(c => selectedForOrder.includes(c.id)).map(c => (<img key={c.id} src={c.image} className="h-32 rounded-lg shadow-lg" />))}</div>
+                            <button onClick={handleOpenPosterMode} className="w-full py-4 bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white font-black rounded-xl uppercase tracking-widest hover:scale-[1.02] transition-transform"><Share2 size={16} className="inline mr-2" /> Crear Póster</button>
+                        </div>
+                    )}
+                </div>
+            </div>
 
+            {/* COLUMNA ESPACIO PARTNER */}
+            {showPartnerSpace && gymData && (
+                <div className="bg-slate-900/40 backdrop-blur-xl rounded-[40px] p-10 border border-white/10 shadow-2xl relative overflow-hidden flex flex-col h-full animate-in slide-in-from-right-4 duration-700">
+                    <div className="relative z-10 flex-1 flex flex-col h-full">
+                        <div className="flex items-center gap-3 mb-10 h-[36px]">
+                            <Ticket size={24} className="text-amber-500" />
+                            <h3 className="text-xl font-bold text-white uppercase tracking-wider">Espacio <span className="text-amber-400">{gymData.name}</span></h3>
+                        </div>
+                        
+                        <div className="flex-1 flex flex-col gap-4">
+                            {gymOffers.map((offer) => (
+                                <div key={offer.id} className="group relative bg-gradient-to-br from-slate-900 via-black to-slate-900 border border-amber-500/30 rounded-3xl p-6 overflow-hidden hover:border-amber-500/50 transition-all shadow-xl flex-1 flex flex-col justify-between h-full">
+                                    <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity"><Sparkles size={60} /></div>
+                                    <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-12 bg-amber-500 rounded-r-full shadow-[0_0_15px_rgba(245,158,11,0.5)]" />
+                                    
+                                    <div className="relative z-10 mb-4 flex-1 flex flex-col justify-center">
+                                        <div className="self-start px-2 py-0.5 rounded-md bg-amber-500/20 text-amber-300 text-[9px] font-bold uppercase tracking-wider border border-amber-500/20 mb-3">
+                                            Exclusivo Socios
+                                        </div>
+                                        <h4 className="text-2xl font-black text-white italic leading-tight mb-2">{offer.title}</h4>
+                                        <p className="text-slate-400 text-sm leading-relaxed">{offer.description}</p>
+                                    </div>
+                                    
+                                    <div className="relative z-10 pt-4 border-t border-white/10 flex items-center justify-between gap-3 mt-auto">
+                                        <div className="flex-1 bg-white/5 rounded-lg px-2 py-3 font-mono text-amber-400 text-sm font-bold tracking-widest border border-dashed border-white/10 text-center select-all truncate">
+                                            {offer.code}
+                                        </div>
+                                        <button onClick={() => handleCopyOffer(offer.code)} className="p-3 bg-amber-500 text-black rounded-lg hover:bg-amber-400 transition-colors shadow-lg shadow-amber-900/20 active:scale-95 flex-shrink-0">
+                                            <Copy size={18} />
+                                        </button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            )}
+        </div>
+        
       </div>
-      
-      {/* MODALES */}
+
       {isSelectorOpen && (
         <div className="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center p-4 md:p-8 backdrop-blur-sm animate-in fade-in duration-200">
              <div className="bg-slate-900 w-full max-w-6xl h-[85vh] rounded-3xl border border-white/10 flex flex-col shadow-2xl overflow-hidden">
@@ -425,6 +524,7 @@ export default function ProfilePage() {
         </div>
       )}
 
+      {/* CONFIRM MODAL */}
       <ConfirmModal 
         isOpen={!!albumToDelete}
         onClose={() => setAlbumToDelete(null)}
@@ -436,87 +536,52 @@ export default function ProfilePage() {
         variant="danger"
       />
 
-      {/* --- HUB DE MEMBRESÍA RENOVADO --- */}
+      {/* --- HUB DE MEMBRESÍA --- */}
       {isRedeemOpen && (
           <div className="fixed inset-0 z-[300] bg-black/90 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200">
               <div className="relative w-full max-w-4xl bg-slate-950 border border-white/10 rounded-3xl shadow-2xl overflow-hidden flex flex-col md:flex-row h-[600px] md:h-[500px]">
-                  
-                  {/* --- COLUMNA IZQUIERDA: BENEFICIOS (VISUAL) --- */}
+                  {/* ... COLUMNA IZQUIERDA ... */}
                   <div className="w-full md:w-2/5 bg-gradient-to-br from-amber-500/20 via-slate-900 to-black p-8 flex flex-col relative overflow-hidden">
                       <div className="absolute top-0 right-0 w-64 h-64 bg-amber-500/20 blur-[100px] rounded-full pointer-events-none" />
-                      
                       <div className="relative z-10">
                           <h2 className="text-3xl font-black text-white italic tracking-tighter uppercase mb-2">Acceso <span className="text-amber-500">PRO</span></h2>
                           <p className="text-amber-200/60 text-sm font-medium mb-8">Desbloquea todo el potencial de tu colección.</p>
-                          
                           <div className="space-y-6">
                               <div className="flex items-center gap-4 group">
                                   <div className="w-10 h-10 bg-amber-500/10 rounded-xl flex items-center justify-center border border-amber-500/20 text-amber-400 group-hover:scale-110 transition-transform"><ShieldCheck size={20} /></div>
-                                  <div>
-                                      <h4 className="text-white font-bold text-sm">Cámara Acorazada</h4>
-                                      <p className="text-slate-400 text-xs">Gestiona tus cartas graded (PSA, BGS...)</p>
-                                  </div>
+                                  <div><h4 className="text-white font-bold text-sm">Cámara Acorazada</h4><p className="text-slate-400 text-xs">Gestiona tus cartas graded (PSA, BGS...)</p></div>
                               </div>
                               <div className="flex items-center gap-4 group">
                                   <div className="w-10 h-10 bg-indigo-500/10 rounded-xl flex items-center justify-center border border-indigo-500/20 text-indigo-400 group-hover:scale-110 transition-transform"><Package size={20} /></div>
-                                  <div>
-                                      <h4 className="text-white font-bold text-sm">Almacén Sellado</h4>
-                                      <p className="text-slate-400 text-xs">Control de ETBs, Boosters y Cajas.</p>
-                                  </div>
+                                  <div><h4 className="text-white font-bold text-sm">Almacén Sellado</h4><p className="text-slate-400 text-xs">Control de ETBs, Boosters y Cajas.</p></div>
                               </div>
                               <div className="flex items-center gap-4 group">
                                   <div className="w-10 h-10 bg-emerald-500/10 rounded-xl flex items-center justify-center border border-emerald-500/20 text-emerald-400 group-hover:scale-110 transition-transform"><Sparkles size={20} /></div>
-                                  <div>
-                                      <h4 className="text-white font-bold text-sm">Sin Límites</h4>
-                                      <p className="text-slate-400 text-xs">Crea tantos álbumes como quieras.</p>
-                                  </div>
+                                  <div><h4 className="text-white font-bold text-sm">Sin Límites</h4><p className="text-slate-400 text-xs">Crea tantos álbumes como quieras.</p></div>
                               </div>
                           </div>
                       </div>
-                      
                       <div className="mt-auto pt-8 relative z-10">
-                          <div className="flex items-center gap-2 text-[10px] uppercase tracking-widest text-slate-500 font-bold">
-                              <CheckCircle2 size={12} className="text-amber-500" /> Cancelación flexible
-                          </div>
+                          <div className="flex items-center gap-2 text-[10px] uppercase tracking-widest text-slate-500 font-bold"><CheckCircle2 size={12} className="text-amber-500" /> Cancelación flexible</div>
                       </div>
                   </div>
 
-                  {/* --- COLUMNA DERECHA: ACCIONES --- */}
+                  {/* ... COLUMNA DERECHA ... */}
                   <div className="w-full md:w-3/5 bg-slate-950 p-8 flex flex-col">
                       <button onClick={() => setIsRedeemOpen(false)} className="absolute top-6 right-6 p-2 text-slate-500 hover:text-white transition-colors bg-white/5 hover:bg-white/10 rounded-full"><X size={18} /></button>
-                      
-                      {/* TABS DE NAVEGACIÓN */}
                       <div className="flex p-1 bg-slate-900 rounded-xl mb-8 self-start border border-white/5">
-                          <button 
-                              onClick={() => setRedeemMode('SUBSCRIPTION')}
-                              className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${redeemMode === 'SUBSCRIPTION' ? 'bg-violet-600 text-white shadow-lg' : 'text-slate-500 hover:text-white'}`}
-                          >
-                              Suscripción Mensual
-                          </button>
-                          <button 
-                              onClick={() => setRedeemMode('CODE')}
-                              className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${redeemMode === 'CODE' ? 'bg-amber-500 text-black shadow-lg' : 'text-slate-500 hover:text-white'}`}
-                          >
-                              Código de Tienda
-                          </button>
+                          <button onClick={() => setRedeemMode('SUBSCRIPTION')} className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${redeemMode === 'SUBSCRIPTION' ? 'bg-violet-600 text-white shadow-lg' : 'text-slate-500 hover:text-white'}`}>Suscripción Mensual</button>
+                          <button onClick={() => setRedeemMode('CODE')} className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${redeemMode === 'CODE' ? 'bg-amber-500 text-black shadow-lg' : 'text-slate-500 hover:text-white'}`}>Código de Tienda</button>
                       </div>
-
                       <div className="flex-1 flex flex-col justify-center">
                           {redeemMode === 'CODE' ? (
                               <div className="animate-in fade-in slide-in-from-right-4 duration-300">
                                   <h3 className="text-xl font-bold text-white mb-2">Canjear Acceso</h3>
                                   <p className="text-slate-400 text-sm mb-6">Introduce el código único proporcionado por tu tienda local asociada.</p>
-                                  
                                   <form onSubmit={handleRedeemCode} className="space-y-4">
                                       <div className="relative group/input">
                                           <Ticket className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within/input:text-amber-500 transition-colors" size={20} />
-                                          <input 
-                                              type="text" 
-                                              placeholder="CÓDIGO (Ej: CARDZONE)" 
-                                              className="w-full bg-slate-900/50 border border-white/10 rounded-xl py-4 pl-12 pr-4 text-white font-mono font-bold uppercase placeholder:text-slate-600 focus:outline-none focus:border-amber-500 focus:bg-slate-900 transition-all"
-                                              value={redeemCode}
-                                              onChange={(e) => setRedeemCode(e.target.value.toUpperCase())}
-                                          />
+                                          <input type="text" placeholder="CÓDIGO (Ej: CARDZONE)" className="w-full bg-slate-900/50 border border-white/10 rounded-xl py-4 pl-12 pr-4 text-white font-mono font-bold uppercase placeholder:text-slate-600 focus:outline-none focus:border-amber-500 focus:bg-slate-900 transition-all" value={redeemCode} onChange={(e) => setRedeemCode(e.target.value.toUpperCase())} />
                                       </div>
                                       <button type="submit" disabled={isRedeeming || !redeemCode} className="w-full bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-black py-4 rounded-xl text-sm font-black uppercase tracking-widest disabled:opacity-50 transition-all shadow-lg shadow-amber-900/20 hover:scale-[1.02] active:scale-95 flex items-center justify-center gap-2">
                                           {isRedeeming ? <Loader2 className="animate-spin" size={18} /> : <>Canjear Código <ChevronRight size={18}/></>}
@@ -525,29 +590,17 @@ export default function ProfilePage() {
                               </div>
                           ) : (
                               <div className="animate-in fade-in slide-in-from-left-4 duration-300 relative">
-                                  <div className="absolute inset-0 bg-slate-950/60 backdrop-blur-[2px] z-20 flex flex-col items-center justify-center text-center">
-                                      <div className="bg-slate-900 border border-white/10 px-6 py-3 rounded-full shadow-2xl">
-                                          <p className="text-xs font-bold text-violet-300 uppercase tracking-widest flex items-center gap-2">
-                                              <Loader2 className="animate-spin" size={14} /> Próximamente
-                                          </p>
-                                      </div>
-                                  </div>
-
-                                  <div className="opacity-50 blur-[1px]">
-                                      <div className="flex justify-between items-baseline mb-2">
-                                          <h3 className="text-xl font-bold text-white">Plan Coleccionista</h3>
-                                          <span className="text-2xl font-black text-white">4.99€<span className="text-sm font-medium text-slate-500">/mes</span></span>
-                                      </div>
+                                  {/* AQUÍ YA NO HAY CANDADO :) */}
+                                  <div className="opacity-100">
+                                      <div className="flex justify-between items-baseline mb-2"><h3 className="text-xl font-bold text-white">Plan Coleccionista</h3><span className="text-2xl font-black text-white">1.99€<span className="text-sm font-medium text-slate-500">/mes</span></span></div>
                                       <p className="text-slate-400 text-sm mb-6">Suscripción mensual flexible. Cancela cuando quieras.</p>
-                                      
                                       <div className="bg-slate-900/50 border border-white/5 rounded-xl p-4 mb-6 space-y-3">
                                           <div className="flex items-center gap-3 text-sm text-slate-300"><CheckCircle2 size={16} className="text-violet-500"/> <span>Acceso completo a la App</span></div>
-                                          <div className="flex items-center gap-3 text-sm text-slate-300"><CheckCircle2 size={16} className="text-violet-500"/> <span>Soporte prioritario</span></div>
+                                          {/* LINEA DE SOPORTE PRIORITARIO ELIMINADA */}
                                           <div className="flex items-center gap-3 text-sm text-slate-300"><CheckCircle2 size={16} className="text-violet-500"/> <span>Badge de perfil PRO</span></div>
                                       </div>
-
-                                      <button disabled className="w-full bg-slate-800 text-slate-400 py-4 rounded-xl text-sm font-bold uppercase tracking-widest flex items-center justify-center gap-2 cursor-not-allowed">
-                                          <CreditCard size={18} /> Suscribirse
+                                      <button onClick={handleSubscribe} disabled={isSubscribing} className="w-full bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-400 hover:to-amber-400 text-black py-4 rounded-xl text-sm font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-all shadow-lg active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed">
+                                         {isSubscribing ? <Loader2 className="animate-spin" size={18}/> : <><CreditCard size={18} /> Suscribirse</>}
                                       </button>
                                   </div>
                               </div>
@@ -557,7 +610,15 @@ export default function ProfilePage() {
               </div>
           </div>
       )}
-
     </div>
+  )
+}
+
+// --- EXPORTACIÓN PRINCIPAL ---
+export default function ProfilePage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-slate-950 flex items-center justify-center"><Loader2 className="animate-spin text-violet-500" /></div>}>
+      <ProfileContent />
+    </Suspense>
   )
 }
