@@ -351,7 +351,7 @@ export default function CreateAlbumPage() {
             </Link>
 
             <div className="flex-1 w-full" id="tour-create-input">
-               <input type="text" placeholder="Nombre del Proyecto..." className="bg-transparent text-3xl font-black text-white w-full outline-none placeholder:text-slate-700" value={albumName} onChange={(e)=>setAlbumName(e.target.value)}/>
+               <input type="text" placeholder="Nombre del Proyecto..." className="bg-transparent text-3xl md:text-5xl font-black text-white w-full outline-none placeholder:text-slate-700" value={albumName} onChange={(e)=>setAlbumName(e.target.value)}/>
             </div>
             
             <div id="tour-modes" className="flex bg-slate-950 p-1 rounded-xl border border-white/10">

@@ -8,7 +8,7 @@ import {
   CheckCircle2, X, Sparkles, ChevronDown, ChevronLeft, ChevronRight,
   Layers, BarChart3, Trophy, Target, Filter, Search, FolderOpen, 
   ShieldCheck, Package, Lock, 
-  Ticket, CreditCard, Zap, ArrowLeft, Copy, CheckSquare, LogOut
+  Ticket, CreditCard, Zap, ArrowLeft, Copy, CheckSquare
 } from 'lucide-react'
 import { toPng } from 'html-to-image'
 import download from 'downloadjs'
@@ -136,15 +136,8 @@ function ProfileContent() {
   const handleSelectAllFiltered = () => {
       const allIds = filteredCards.map(c => c.id)
       const allSelected = allIds.every(id => selectedForOrder.includes(id))
-      
-      if (allSelected) {
-          setSelectedForOrder(prev => prev.filter(id => !allIds.includes(id)))
-      } else {
-          setSelectedForOrder(prev => {
-              const newSet = new Set([...prev, ...allIds])
-              return Array.from(newSet)
-          })
-      }
+      if (allSelected) { setSelectedForOrder(prev => prev.filter(id => !allIds.includes(id))) } 
+      else { setSelectedForOrder(prev => { const newSet = new Set([...prev, ...allIds]); return Array.from(newSet) }) }
   }
 
   const handleLoadMore = () => setVisibleCount(prev => prev + 50)
@@ -160,9 +153,7 @@ function ProfileContent() {
         
         for (let i = 0; i < totalPages; i++) { 
             setPosterPage(i); 
-            // Espera crítica para renderizado en Safari
             await new Promise(resolve => setTimeout(resolve, 1500)); 
-            
             const posterNode = document.getElementById('visible-poster'); 
             
             if (posterNode) { 
@@ -171,26 +162,18 @@ function ProfileContent() {
                     pixelRatio: 1.5, 
                     cacheBust: true, 
                     skipAutoScale: true,
-                    // SOLUCIÓN FOTOS NEGRAS: Evitamos useCORS aquí y lo ponemos en la etiqueta <img>
-                    backgroundColor: '#0a0a0a', 
+                    backgroundColor: '#0a0a0a'
                 }); 
                 
                 setFlashActive(true); 
                 setTimeout(() => setFlashActive(false), 200); 
-                
                 download(dataUrl, `pokebinders-wanted-${username}-page-${i + 1}.png`); 
-                
                 await new Promise(resolve => setTimeout(resolve, 800)); 
             } 
         } 
-        
         setPosterPage(initialPage); 
         setDownloadSuccess(true); 
-        setTimeout(() => { 
-            setDownloadSuccess(false); 
-            setIsDownloading(false) 
-        }, 3000); 
-        
+        setTimeout(() => { setDownloadSuccess(false); setIsDownloading(false) }, 3000); 
     } catch (error) { 
         console.error('Error:', error); 
         toast.error('Error al generar imagen', { description: 'Inténtalo de nuevo.' }); 
@@ -221,14 +204,9 @@ function ProfileContent() {
               setGymData({ name: g.name, logo_url: g.logo_url }) 
           }
           if (profile.gym_id) {
-              const { data: offers } = await supabase
-                .from('gym_offers')
-                .select('*')
-                .eq('gym_id', profile.gym_id)
-                .eq('is_active', true)
+              const { data: offers } = await supabase.from('gym_offers').select('*').eq('gym_id', profile.gym_id).eq('is_active', true)
               if (offers) setGymOffers(offers)
           }
-
         } else if (profile.subscription_status === 'PRO') { 
             currentStatus = 'PRO'; 
         }
@@ -359,7 +337,7 @@ function ProfileContent() {
             <div className="grid grid-cols-3 gap-3 w-full h-full max-h-full">
                 {cards.map((card:any) => (
                     <div key={card.id} className="relative aspect-[0.716] rounded-lg overflow-hidden shadow-lg border border-white/10 group bg-slate-900">
-                        {/* ESTA ES LA CLAVE DE ORO: crossOrigin="anonymous" SOLO EN EL PÓSTER */}
+                        {/* ESTA ES LA CLAVE: crossOrigin="anonymous" SOLO EN EL PÓSTER */}
                         <img src={card.image} className="w-full h-full object-cover" crossOrigin="anonymous" />
                     </div>
                 ))}
@@ -377,18 +355,12 @@ function ProfileContent() {
      const selectedCardsList = missingCards.filter(c => selectedForOrder.includes(c.id)); const CARDS_PER_PAGE = 9; const totalPages = Math.ceil(selectedCardsList.length / CARDS_PER_PAGE); const currentCards = selectedCardsList.slice(posterPage * CARDS_PER_PAGE, (posterPage + 1) * CARDS_PER_PAGE);
      return (
         <div className="fixed inset-0 z-[200] bg-black/95 flex items-center justify-center p-4 backdrop-blur-sm">
-            
-            {/* VISTA PREVIA DEL PÓSTER */}
             <div className="flex items-center gap-4 md:gap-8 max-h-screen py-12 pb-32">
                 <div id="visible-poster-container" className={`transition-transform duration-500 origin-center ${isDownloading ? 'scale-100' : 'scale-[0.85] md:scale-100'}`}>
                     <PosterTemplate cards={currentCards} pageIndex={posterPage} totalPages={totalPages} />
                 </div>
             </div>
-
-            {/* CONTROLES FLOTANTES ABAJO - AHORA VISIBLES EN IPHONE */}
             <div className="absolute bottom-0 left-0 right-0 p-6 pb-8 bg-black/80 backdrop-blur-xl border-t border-white/10 flex flex-col gap-4 z-50">
-                
-                {/* Paginación si hay más de 1 página */}
                 {totalPages > 1 && (
                     <div className="flex items-center justify-center gap-6 text-white mb-2">
                         <button onClick={() => setPosterPage(p => Math.max(0, p - 1))} disabled={posterPage === 0 || isDownloading} className="p-2 bg-white/10 rounded-full hover:bg-white/20 disabled:opacity-30"><ChevronLeft size={24} /></button>
@@ -396,7 +368,6 @@ function ProfileContent() {
                         <button onClick={() => setPosterPage(p => Math.min(totalPages - 1, p + 1))} disabled={posterPage === totalPages - 1 || isDownloading} className="p-2 bg-white/10 rounded-full hover:bg-white/20 disabled:opacity-30"><ChevronRight size={24} /></button>
                     </div>
                 )}
-
                 <div className="flex gap-4">
                     <button onClick={() => setIsPosterMode(false)} disabled={isDownloading} className="flex-1 py-4 rounded-xl font-bold uppercase tracking-widest text-xs bg-white/10 text-white hover:bg-white/20 transition-all">
                         Volver
@@ -544,16 +515,6 @@ function ProfileContent() {
             )}
         </div>
         
-        {/* BOTÓN CERRAR SESIÓN MÓVIL */}
-        <div className="mt-12 md:hidden px-6 pb-12">
-             <button 
-                 onClick={() => { window.dispatchEvent(new CustomEvent('open-logout-modal')) }}
-                 className="w-full py-4 bg-slate-900 border border-red-500/30 text-red-400 font-bold uppercase tracking-widest rounded-xl hover:bg-red-500/10 transition-colors flex items-center justify-center gap-2"
-             >
-                <LogOut size={18} /> Cerrar Sesión
-             </button>
-        </div>
-
       </div>
 
       {isSelectorOpen && (
@@ -569,7 +530,6 @@ function ProfileContent() {
                         <button onClick={() => setIsSelectorOpen(false)} className="p-2 bg-white/5 rounded-full text-slate-300 hover:text-white"><X size={20} /></button>
                     </div>
                     
-                    {/* FILTROS Y BUSCADOR */}
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-2 md:gap-4">
                         <div className="relative">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={14} />

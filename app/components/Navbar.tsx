@@ -1,10 +1,10 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '../../lib/supabase'
-import { LogIn, Plus, LogOut, FolderPlus } from 'lucide-react'
+import { LogIn, Plus, LogOut, FolderPlus, User, ChevronDown } from 'lucide-react'
 import { toast } from 'sonner'
 import AuthModal from './AuthModal'
 import ConfirmModal from './ConfirmModal'
@@ -16,6 +16,10 @@ export default function Navbar() {
   const [showLogoutModal, setShowLogoutModal] = useState(false)
   const [isLoggingOut, setIsLoggingOut] = useState(false)
   
+  // NUEVO: Estado para el menú móvil del avatar
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const mobileMenuRef = useRef<HTMLDivElement>(null)
+  
   const pathname = usePathname()
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -23,21 +27,24 @@ export default function Navbar() {
   const isTutorialMode = searchParams.get('step') === 'create'
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null)
-    })
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null)
-    })
+    supabase.auth.getSession().then(({ data: { session } }) => setUser(session?.user ?? null))
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => setUser(session?.user ?? null))
     return () => subscription.unsubscribe()
   }, [])
 
-  // Escuchar evento de logout desde perfil móvil
+  // Cierra el menú si tocas fuera
   useEffect(() => {
-    const handleOpenLogout = () => setShowLogoutModal(true);
-    window.addEventListener('open-logout-modal', handleOpenLogout);
-    return () => window.removeEventListener('open-logout-modal', handleOpenLogout);
-  }, []);
+    const handleClickOutside = (event: MouseEvent) => {
+      if (mobileMenuRef.current && !mobileMenuRef.current.contains(event.target as Node)) {
+        setMobileMenuOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  // Cierra el menú al cambiar de ruta
+  useEffect(() => { setMobileMenuOpen(false) }, [pathname])
 
   const handleLogout = async () => {
     setIsLoggingOut(true)
@@ -48,7 +55,6 @@ export default function Navbar() {
         router.push('/logout') 
     } catch (error) {
         toast.error('Error al cerrar sesión')
-        console.error(error)
     } finally {
         setIsLoggingOut(false)
     }
@@ -64,6 +70,7 @@ export default function Navbar() {
       <nav className="fixed top-0 w-full z-50 flex justify-center">
         <div className="w-full flex items-center justify-between bg-slate-900/90 backdrop-blur-xl border-b border-white/5 px-4 py-3 md:px-8 shadow-2xl h-16 md:h-20 transition-all">
           
+          {/* LOGO */}
           <Link href="/profile" className="flex items-center gap-3 group cursor-pointer">
             <Logo width={48} height={48} className="md:w-[64px] md:h-[64px] transition-transform duration-300 group-hover:scale-110" />
             <div className="flex flex-col justify-center">
@@ -73,19 +80,13 @@ export default function Navbar() {
             </div>
           </Link>
 
+          {/* ZONA DERECHA */}
           <div className="flex items-center gap-3 md:gap-6">
             {user && (
               <Link href="/create">
                 <button 
                   id="tour-create-btn" 
-                  className={`
-                    flex items-center justify-center gap-2 rounded-full font-bold tracking-widest uppercase transition-all duration-500 active:scale-95 shadow-lg
-                    ${isTutorialMode 
-                      ? 'bg-violet-600 text-white shadow-[0_0_30px_rgba(139,92,246,0.8)] border border-violet-400 animate-pulse ring-4 ring-violet-500/30' 
-                      : 'bg-violet-600 hover:bg-violet-500 text-white border border-white/10 hover:shadow-[0_0_20px_rgba(139,92,246,0.5)]'
-                    }
-                    w-10 h-10 md:w-auto md:h-auto md:px-6 md:py-2.5 p-0
-                  `}
+                  className={`flex items-center justify-center gap-2 rounded-full font-bold tracking-widest uppercase transition-all duration-500 active:scale-95 shadow-lg ${isTutorialMode ? 'bg-violet-600 text-white animate-pulse ring-4 ring-violet-500/30' : 'bg-violet-600 hover:bg-violet-500 text-white'} w-10 h-10 md:w-auto md:h-auto md:px-6 md:py-2.5 p-0`}
                 >
                   <Plus size={20} strokeWidth={3} className={`md:hidden ${isTutorialMode ? 'animate-bounce' : ''}`} />
                   <FolderPlus size={18} strokeWidth={2.5} className="hidden md:block" />
@@ -101,16 +102,55 @@ export default function Navbar() {
                 <LogIn size={14} /> <span>Entrar</span>
               </button>
             ) : (
-              <div className="flex items-center gap-3 md:gap-4">
-                <Link href="/profile" className="group flex items-center gap-3 cursor-pointer">
-                   <div className="text-right hidden md:block">
-                      <p className="text-[9px] text-slate-500 font-black tracking-widest uppercase mb-0.5 group-hover:text-violet-400 transition-colors">Entrenador</p>
+              <div className="flex items-center gap-3 md:gap-4 relative" ref={mobileMenuRef}>
+                
+                {/* --- LÓGICA DE AVATAR (MÓVIL vs PC) --- */}
+                
+                {/* EN PC: LINK DIRECTO A PERFIL */}
+                <Link href="/profile" className="group hidden md:flex items-center gap-3 cursor-pointer">
+                   <div className="text-right">
+                      <p className="text-[9px] text-slate-500 font-black tracking-widest uppercase mb-0.5">Entrenador</p>
                       <p className="text-xs font-bold text-white leading-none truncate max-w-[100px]">{username}</p>
                    </div>
-                   <div className="w-9 h-9 md:w-11 md:h-11 bg-slate-800 border-2 border-white/10 rounded-full flex items-center justify-center text-violet-400 font-black shadow-lg group-hover:border-violet-500 group-hover:shadow-[0_0_15px_rgba(139,92,246,0.4)] group-hover:scale-105 transition-all overflow-hidden">
-                      <span className="text-xs md:text-sm">{initial}</span>
+                   <div className="w-11 h-11 bg-slate-800 border-2 border-white/10 rounded-full flex items-center justify-center text-violet-400 font-black shadow-lg hover:border-violet-500 transition-all">
+                      {initial}
                    </div>
                 </Link>
+
+                {/* EN MÓVIL: BOTÓN QUE ABRE MENÚ */}
+                <button 
+                    onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                    className="md:hidden w-10 h-10 bg-slate-800 border-2 border-white/10 rounded-full flex items-center justify-center text-violet-400 font-black shadow-lg active:scale-95 transition-all relative"
+                >
+                    {initial}
+                    {/* Indicador de menú */}
+                    <div className="absolute -bottom-1 -right-1 bg-slate-950 rounded-full p-0.5 border border-white/10">
+                        <ChevronDown size={10} className="text-slate-400" />
+                    </div>
+                </button>
+
+                {/* MENÚ DESPLEGABLE MÓVIL */}
+                {mobileMenuOpen && (
+                    <div className="absolute top-14 right-0 w-48 bg-slate-900 border border-white/10 rounded-2xl shadow-2xl p-2 flex flex-col gap-1 z-50 animate-in fade-in zoom-in-95 duration-200">
+                        <div className="px-3 py-2 border-b border-white/5 mb-1">
+                            <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest">Hola,</p>
+                            <p className="text-xs font-bold text-white truncate">{username}</p>
+                        </div>
+                        <Link href="/profile" onClick={() => setMobileMenuOpen(false)}>
+                            <button className="w-full flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-white/5 text-slate-300 hover:text-white text-xs font-bold transition-colors">
+                                <User size={16} /> Mi Perfil
+                            </button>
+                        </Link>
+                        <button 
+                            onClick={() => { setMobileMenuOpen(false); setShowLogoutModal(true); }}
+                            className="w-full flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-red-500/10 text-red-400 hover:text-red-300 text-xs font-bold transition-colors"
+                        >
+                            <LogOut size={16} /> Cerrar Sesión
+                        </button>
+                    </div>
+                )}
+                
+                {/* BOTÓN LOGOUT (SOLO PC) */}
                 <button onClick={() => setShowLogoutModal(true)} className="hidden md:flex text-slate-600 hover:text-red-500 transition-colors p-2 hover:bg-white/5 rounded-full" title="Cerrar sesión">
                   <LogOut size={20} />
                 </button>
@@ -123,18 +163,7 @@ export default function Navbar() {
       <div className="h-20 md:h-28 w-full" />
 
       <AuthModal isOpen={isAuthOpen} onClose={() => setIsAuthOpen(false)} />
-      
-      <ConfirmModal 
-        isOpen={showLogoutModal}
-        onClose={() => setShowLogoutModal(false)}
-        onConfirm={handleLogout}
-        title="¿Cerrar Sesión?"
-        description="Tendrás que volver a introducir tus credenciales para acceder a tu colección."
-        confirmText="Cerrar Sesión"
-        cancelText="Cancelar"
-        variant="danger"
-        isProcessing={isLoggingOut}
-      />
+      <ConfirmModal isOpen={showLogoutModal} onClose={() => setShowLogoutModal(false)} onConfirm={handleLogout} title="¿Cerrar Sesión?" description="¿Seguro que quieres salir?" confirmText="Cerrar Sesión" variant="danger" isProcessing={isLoggingOut} />
     </>
   )
 }
