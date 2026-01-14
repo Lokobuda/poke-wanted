@@ -4,17 +4,23 @@ import { useState, useEffect, useMemo, useRef, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation' 
 import { supabase } from '../../lib/supabase'
 import { 
-  Loader2, Disc, Share2, CheckCircle2, X, Sparkles, ChevronDown, ChevronLeft, ChevronRight,
+  Loader2, Disc, Share2,
+  CheckCircle2, X, Sparkles, ChevronDown, ChevronLeft, ChevronRight,
   Layers, BarChart3, Trophy, Target, Filter, Search, FolderOpen, 
-  ShieldCheck, Package, Lock, Ticket, CreditCard, Zap, ArrowLeft, Copy, CheckSquare, LogOut
+  ShieldCheck, Package, Lock, 
+  Ticket, CreditCard, Zap, ArrowLeft, Copy, CheckSquare, LogOut
 } from 'lucide-react'
 import { toPng } from 'html-to-image'
 import download from 'downloadjs'
 import { toast } from 'sonner'
 import ConfirmModal from '../components/ConfirmModal'
+
+// COMPONENTES
 import ProfileHeader from './components/ProfileHeader'
 import StarterSelector from '../components/StarterSelector'
 import TutorialOverlay, { TutorialStep } from '../components/TutorialOverlay'
+
+// UTILIDADES
 import { getCardScore } from '../../lib/scoring'
 import { RANKS, STARTER_PATHS } from '../../lib/ranks'
 
@@ -26,7 +32,6 @@ const RARITY_TRANSLATIONS: Record<string, string> = {
   'Rare Secret': 'Secreta Rara', 'Classic Collection': 'Colección Clásica', 'Radiant Rare': 'Radiante'
 }
 
-// ... (PROFILE_STEPS se mantiene igual) ...
 const PROFILE_STEPS: TutorialStep[] = [
   { targetId: 'tour-start', title: '¡Hola, coleccionista! 👋', text: 'Veo que acabas de aterrizar. Tu perfil es tu cuartel general. Vamos a echarle un vistazo.', action: '¡Dale caña!', position: 'center' },
   { targetId: 'tour-rank', title: 'Tu Nivel de Prestigio 👑', text: 'Sube de nivel consiguiendo cartas y completando sets para seguir creciendo cada día como coleccionista.', action: 'Entendido', position: 'bottom' },
@@ -50,6 +55,7 @@ function ProfileContent() {
   const [starterData, setStarterData] = useState<{gen: string, type: string} | null>(null)
   const [subscriptionType, setSubscriptionType] = useState<'INDIE' | 'GYM' | 'PRO'>('INDIE')
   const [gymData, setGymData] = useState<{name: string, logo_url?: string | null} | null>(null)
+  
   const [gymOffers, setGymOffers] = useState<any[]>([])
   
   const [showStarterSelector, setShowStarterSelector] = useState(false)
@@ -102,6 +108,7 @@ function ProfileContent() {
     if (!searchParams) return;
     const openPro = searchParams.get('open_pro')
     if (openPro === 'true') { setIsRedeemOpen(true); router.replace('/profile', { scroll: false }) }
+    
     const paymentStatus = searchParams.get('payment')
     if (paymentStatus === 'success') {
         toast.success('¡Bienvenido al Club PRO!', { description: 'Tu suscripción se ha activado correctamente.' })
@@ -129,14 +136,21 @@ function ProfileContent() {
   const handleSelectAllFiltered = () => {
       const allIds = filteredCards.map(c => c.id)
       const allSelected = allIds.every(id => selectedForOrder.includes(id))
-      if (allSelected) { setSelectedForOrder(prev => prev.filter(id => !allIds.includes(id))) } 
-      else { setSelectedForOrder(prev => { const newSet = new Set([...prev, ...allIds]); return Array.from(newSet) }) }
+      
+      if (allSelected) {
+          setSelectedForOrder(prev => prev.filter(id => !allIds.includes(id)))
+      } else {
+          setSelectedForOrder(prev => {
+              const newSet = new Set([...prev, ...allIds])
+              return Array.from(newSet)
+          })
+      }
   }
 
   const handleLoadMore = () => setVisibleCount(prev => prev + 50)
   const handleOpenPosterMode = () => { if (selectedForOrder.length === 0) return toast.warning("Selecciona al menos una carta."); setPosterPage(0); setIsPosterMode(true) }
   
-  // --- LÓGICA DE DESCARGA ---
+  // --- DESCARGA MEJORADA PARA SAFARI (CON BASE64 PROXY MANUAL) ---
   const handleInteractiveDownload = async (totalPages: number) => { 
     if (isDownloading) return; 
     setIsDownloading(true); 
@@ -147,7 +161,7 @@ function ProfileContent() {
         
         for (let i = 0; i < totalPages; i++) { 
             setPosterPage(i); 
-            // Espera crítica para renderizado en Safari (1.5s)
+            // Espera para renderizado
             await new Promise(resolve => setTimeout(resolve, 1500)); 
             
             const posterNode = document.getElementById('visible-poster'); 
@@ -155,11 +169,11 @@ function ProfileContent() {
             if (posterNode) { 
                 const dataUrl = await toPng(posterNode, { 
                     quality: 0.95, 
-                    pixelRatio: 1.5, 
+                    pixelRatio: 1.5, // Reducido para evitar crashes de memoria en iOS
                     cacheBust: true, 
                     skipAutoScale: true,
-                    // Fondo explícito para evitar PNG transparentes negros
                     backgroundColor: '#0a0a0a',
+                    // Importante: No usar 'useCORS' aquí si las imágenes ya tienen crossOrigin o son base64
                 }); 
                 
                 setFlashActive(true); 
@@ -180,7 +194,7 @@ function ProfileContent() {
         
     } catch (error) { 
         console.error('Error:', error); 
-        toast.error('Error al generar imagen', { description: 'Safari se está resistiendo. Inténtalo de nuevo.' }); 
+        toast.error('Error al generar imagen', { description: 'Inténtalo de nuevo, Safari a veces se pone tímido.' }); 
         setIsDownloading(false) 
     } 
   }
@@ -200,20 +214,37 @@ function ProfileContent() {
       let currentStatus: 'INDIE' | 'GYM' | 'PRO' = 'INDIE'; 
       if (profile) {
         if (profile.starter_gen && profile.starter_type) { setStarterData({ gen: profile.starter_gen, type: profile.starter_type }) } else { setShowStarterSelector(true) }
+        
         if (profile.subscription_status === 'GYM') { 
           currentStatus = 'GYM'; 
-          if (profile.gyms) { const g: any = profile.gyms; setGymData({ name: g.name, logo_url: g.logo_url }) }
-          if (profile.gym_id) { const { data: offers } = await supabase.from('gym_offers').select('*').eq('gym_id', profile.gym_id).eq('is_active', true); if (offers) setGymOffers(offers) }
-        } else if (profile.subscription_status === 'PRO') { currentStatus = 'PRO'; }
+          if (profile.gyms) { 
+              const g: any = profile.gyms; 
+              setGymData({ name: g.name, logo_url: g.logo_url }) 
+          }
+          if (profile.gym_id) {
+              const { data: offers } = await supabase.from('gym_offers').select('*').eq('gym_id', profile.gym_id).eq('is_active', true)
+              if (offers) setGymOffers(offers)
+          }
+        } else if (profile.subscription_status === 'PRO') { 
+            currentStatus = 'PRO'; 
+        }
       } else { setShowStarterSelector(true) }
       setSubscriptionType(currentStatus)
 
-      const { data: setsData } = await supabase.from('sets').select('id, name'); const setsMap = new Map<string, string>(); setsData?.forEach((s: any) => setsMap.set(s.id, s.name))
-      const { data: inventoryData } = await supabase.from('inventory').select('card_id, quantity_normal, quantity_holo, quantity_reverse').eq('user_id', session.user.id); const inventoryMap = new Map(); inventoryData?.forEach((item: any) => inventoryMap.set(item.card_id, item))
+      const { data: setsData } = await supabase.from('sets').select('id, name')
+      const setsMap = new Map<string, string>(); setsData?.forEach((s: any) => setsMap.set(s.id, s.name))
+
+      const { data: inventoryData } = await supabase.from('inventory').select('card_id, quantity_normal, quantity_holo, quantity_reverse').eq('user_id', session.user.id)
+      const inventoryMap = new Map(); inventoryData?.forEach((item: any) => inventoryMap.set(item.card_id, item))
+
       const { count: gradedCount } = await supabase.from('graded_cards').select('id', { count: 'exact' }).eq('user_id', session.user.id)
       const { count: sealedCount } = await supabase.from('sealed_products').select('id', { count: 'exact' }).eq('user_id', session.user.id)
 
-      const totalGraded = gradedCount || 0; const totalSealed = sealedCount || 0; const gradedScoreBoost = totalGraded * 50; const sealedScoreBoost = totalSealed * 20 
+      const totalGraded = gradedCount || 0; 
+      const totalSealed = sealedCount || 0
+      const gradedScoreBoost = totalGraded * 50; 
+      const sealedScoreBoost = totalSealed * 20 
+
       const { data: albumsData } = await supabase.from('albums').select(`id, name, is_master_set, set_id, created_at, album_cards (acquired, card_variants (id, image_url, cards (name, set_id, collector_number, rarity)))`).eq('user_id', session.user.id).order('created_at', { ascending: false })
 
       let totalCardsOwned = 0; let totalSlotsTracked = 0; let totalOwnedInTracked = 0; let totalScore = 0
@@ -251,14 +282,83 @@ function ProfileContent() {
     } catch (error) { console.error(error); toast.error('Error al cargar perfil') } finally { if(mounted) setLoading(false) }
   }
 
-  const handleSubscribe = async () => { /* ... (Lógica de pago igual que antes) ... */ }
-  const handleRedeemCode = async (e: React.FormEvent) => { /* ... (Lógica de código igual que antes) ... */ }
-  const handleCopyOffer = (code: string) => { navigator.clipboard.writeText(code); toast.success('¡Copiado!') }
-  const getBuddyImage = () => { if (!starterData) return null; let genKey = starterData.gen; if (!genKey.startsWith('gen')) genKey = `gen${genKey}`; const genPaths = STARTER_PATHS[genKey]; if (!genPaths) return null; const typePaths = genPaths[starterData.type]; if (!typePaths) return null; return typePaths[currentRank.id] || typePaths[1] || Object.values(typePaths)[0] || null }
+  // --- BOTÓN DE PAGO REPARADO ---
+  const handleSubscribe = async () => {
+    console.log("💳 Iniciando proceso de suscripción..."); // LOG DE CONTROL
+    setIsSubscribing(true);
+    
+    try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const token = session?.access_token;
+        
+        if (!token) {
+            console.error("❌ No hay sesión activa");
+            throw new Error('No se encontró sesión activa.');
+        }
+
+        console.log("🚀 Enviando petición a /api/checkout...");
+        const response = await fetch('/api/checkout', { 
+            method: 'POST',
+            headers: { 
+                'Content-Type': 'application/json', 
+                'Authorization': `Bearer ${token}` 
+            }
+        });
+
+        console.log("📥 Respuesta recibida:", response.status);
+
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({ error: 'Error desconocido del servidor' }));
+            console.error("🔥 Error del servidor:", errorData);
+            throw new Error(errorData.error || `Error ${response.status}: ${response.statusText}`);
+        }
+        
+        const data = await response.json();
+        console.log("✅ Datos de pago recibidos:", data);
+
+        if (data.url) {
+            window.location.href = data.url;
+        } else {
+            throw new Error('No se recibió la URL de pago de Stripe');
+        }
+
+    } catch (error: any) {
+        console.error('💥 Error crítico en handleSubscribe:', error);
+        toast.error('Error al iniciar el pago', { description: error.message });
+        setIsSubscribing(false);
+    }
+  }
+
+  const handleRedeemCode = async (e: React.FormEvent) => {
+    e.preventDefault(); if (!redeemCode.trim()) return; setIsRedeeming(true)
+    try { const { data, error } = await supabase.rpc('claim_gym_access', { input_code: redeemCode.trim() }); if (error) throw error; if (data && data.success) { router.push(`/store-landing?code=${redeemCode.trim()}&redeemed=true`) } else { toast.error('Código inválido', { description: data?.error || 'Revisa el código.' }); setIsRedeeming(false) } } catch (err: any) { toast.error('Error', { description: err.message }); setIsRedeeming(false) }
+  }
+  
+  const handleCopyOffer = (code: string) => {
+    navigator.clipboard.writeText(code)
+    toast.success('¡Código copiado!', { description: 'Muéstralo en caja o úsalo en la web.', icon: '🎟️' })
+  }
+
+  const getBuddyImage = () => {
+      if (!starterData) return null
+      let genKey = starterData.gen; if (!genKey.startsWith('gen')) genKey = `gen${genKey}`
+      const genPaths = STARTER_PATHS[genKey]; if (!genPaths) return null
+      const typePaths = genPaths[starterData.type]; if (!typePaths) return null
+      return typePaths[currentRank.id] || typePaths[1] || Object.values(typePaths)[0] || null
+  }
+
   const handleConfirmDeleteAlbum = async () => { if (!albumToDelete) return; setIsDeletingAlbum(true); const { error } = await supabase.from('albums').delete().eq('id', albumToDelete); if (!error) setStats(prev => ({ ...prev, projectsProgress: prev.projectsProgress.filter(p => p.id !== albumToDelete), totalAlbums: Math.max(0, prev.totalAlbums - 1) })); setIsDeletingAlbum(false); setAlbumToDelete(null) }
   const handleStarterSelect = async (gen: string, type: string) => { const { data: { session } } = await supabase.auth.getSession(); if (!session) return; const cleanGen = gen.startsWith('gen') ? gen : `gen${gen}`; const { error } = await supabase.from('profiles').upsert({ id: session.user.id, starter_gen: cleanGen, starter_type: type }, { onConflict: 'id' }); if (!error) { setStarterData({ gen: cleanGen, type }); setShowStarterSelector(false); setShowTutorial(true); fetchProfileData() } }
-  const handleFinishTutorial = async () => { localStorage.setItem('tutorial_completed', 'true'); localStorage.setItem('tutorial_phase', 'creating'); setShowTutorial(false); router.push('/create', { scroll: false }) }
-  const closeTutorialPermanently = async () => { setShowTutorial(false); localStorage.setItem('tutorial_completed', 'true'); }
+
+  const handleFinishTutorial = async () => {
+    localStorage.setItem('tutorial_completed', 'true')
+    localStorage.setItem('tutorial_phase', 'creating')
+    setShowTutorial(false)
+    try { const { data: { session } } = await supabase.auth.getSession(); if (session) await supabase.from('profiles').update({ has_completed_tutorial: true }).eq('id', session.user.id) } catch (err) { console.log("Error guardando tutorial") }
+    router.push('/create', { scroll: false })
+  }
+
+  const closeTutorialPermanently = async () => { setShowTutorial(false); localStorage.setItem('tutorial_completed', 'true'); try { const { data: { session } } = await supabase.auth.getSession(); if (session) await supabase.from('profiles').update({ has_completed_tutorial: true }).eq('id', session.user.id) } catch (err) { console.log("Error guardando tutorial skip") } }
 
   if (loading) return <div className="min-h-screen bg-slate-950 flex items-center justify-center"><Loader2 className="animate-spin text-violet-500" /></div>
   
@@ -280,14 +380,16 @@ function ProfileContent() {
             <div className="grid grid-cols-3 gap-3 w-full h-full max-h-full">
                 {cards.map((card:any) => (
                     <div key={card.id} className="relative aspect-[0.716] rounded-lg overflow-hidden shadow-lg border border-white/10 group bg-slate-900">
-                        {/* EL TRUCO FINAL:
-                           1. crossOrigin="anonymous": Necesario para que html-to-image lo acepte.
-                           2. ?t=${Date.now()}: Rompe el caché para que el navegador pida la imagen con CORS nuevos.
+                        {/* AQUÍ ESTÁ LA SOLUCIÓN DEFINITIVA PARA IMÁGENES:
+                           1. referrerPolicy="no-referrer": Esencial para saltar bloqueos de hotlink básicos.
+                           2. crossOrigin="anonymous": Necesario para que el canvas (toPng) pueda leer la imagen.
+                           3. Cache Busting (?t=...): Obliga al navegador a pedir una copia nueva y limpia.
                         */}
                         <img 
                             src={`${card.image}?t=${new Date().getTime()}`} 
                             className="w-full h-full object-cover" 
                             crossOrigin="anonymous" 
+                            referrerPolicy="no-referrer"
                         />
                     </div>
                 ))}
@@ -417,8 +519,12 @@ function ProfileContent() {
                         </div>
                     ) : (
                         <div className="space-y-6 flex-1 flex flex-col justify-end">
-                            {/* IMÁGENES PREVIEW WANTED LIST - IMPORTANTE: NO crossOrigin aquí */}
-                            <div className="flex gap-4 overflow-x-auto pb-4">{missingCards.filter(c => selectedForOrder.includes(c.id)).map(c => (<img key={c.id} src={c.image} className="h-32 rounded-lg shadow-lg" />))}</div>
+                            {/* IMÁGENES PREVIEW WANTED LIST (REJILLA NORMAL) - SIN crossOrigin NI referrerPolicy para evitar problemas de carga normal */}
+                            <div className="flex gap-4 overflow-x-auto pb-4">
+                                {missingCards.filter(c => selectedForOrder.includes(c.id)).map(c => (
+                                    <img key={c.id} src={c.image} className="h-32 rounded-lg shadow-lg" loading="lazy" />
+                                ))}
+                            </div>
                             <button onClick={handleOpenPosterMode} className="w-full py-4 bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white font-black rounded-xl uppercase tracking-widest hover:scale-[1.02] transition-transform"><Share2 size={16} className="inline mr-2" /> Crear Póster</button>
                         </div>
                     )}
@@ -453,6 +559,10 @@ function ProfileContent() {
                 </div>
             )}
         </div>
+        
+        {/* BOTÓN CERRAR SESIÓN MÓVIL (DESACTIVADO PORQUE YA ESTÁ EN EL NAVBAR) */}
+        {/* <div className="mt-12 md:hidden px-6 pb-12">...</div> */}
+
       </div>
 
       {isSelectorOpen && (
