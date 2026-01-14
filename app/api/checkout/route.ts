@@ -4,7 +4,7 @@ import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 
 export async function POST(req: Request) {
-  console.log("--- INICIO PROCESO DE PAGO (PLAN DE EMERGENCIA) ---");
+  console.log("--- 💳 INICIO CHECKOUT (MODO PRODUCCIÓN) ---");
   
   try {
     const cookieStore = await cookies();
@@ -27,41 +27,39 @@ export async function POST(req: Request) {
     const { data: { user: userFromCookie } } = await supabase.auth.getUser();
     if (userFromCookie) {
         user = userFromCookie;
-        console.log("✅ Usuario autenticado por Cookie");
     } else {
         // INTENTO B: Cabecera Authorization (Plan de Emergencia)
-        console.warn("⚠️ Cookie falló. Buscando token manual en cabeceras...");
         const authHeader = req.headers.get('Authorization');
-        
         if (authHeader) {
-            const token = authHeader.split(' ')[1]; // Quitamos 'Bearer '
-            const { data: { user: userFromToken }, error } = await supabase.auth.getUser(token);
-            
-            if (userFromToken) {
-                user = userFromToken;
-                console.log("✅ Usuario autenticado por Token Manual");
-            } else {
-                console.error("❌ Token manual inválido:", error?.message);
-            }
+            const token = authHeader.split(' ')[1]; 
+            const { data: { user: userFromToken } } = await supabase.auth.getUser(token);
+            if (userFromToken) user = userFromToken;
         }
     }
 
     if (!user) {
-      console.error("❌ ERROR FINAL: Imposible identificar al usuario por ningún método.");
+      console.error("❌ ERROR: Usuario no autenticado.");
       return new NextResponse('No autorizado', { status: 401 });
     }
 
-    console.log(`👤 USUARIO: ${user.email}`);
+    console.log(`👤 Usuario: ${user.email}`);
 
-    // --- CONFIGURACIÓN DE STRIPE ---
-    const priceId = process.env.STRIPE_PRICE_ID;
+    // --- 2. CONFIGURACIÓN DE STRIPE (VALIDACIÓN CRÍTICA) ---
+    // En producción, estas variables SON VITALES.
+    const priceId = process.env.STRIPE_PRICE_ID; 
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL;
 
-    if (!priceId || !baseUrl) {
-      return new NextResponse('Error config servidor', { status: 500 });
+    if (!priceId) {
+        console.error("❌ FATAL: Falta STRIPE_PRICE_ID en las variables de entorno.");
+        return new NextResponse('Configuración de precio no encontrada', { status: 500 });
+    }
+    
+    if (!baseUrl) {
+        console.error("❌ FATAL: Falta NEXT_PUBLIC_BASE_URL en las variables de entorno.");
+        return new NextResponse('Configuración de URL base no encontrada', { status: 500 });
     }
 
-    // --- GESTIÓN DE CLIENTE (Customer) ---
+    // --- 3. GESTIÓN DE CLIENTE (Customer) ---
     const { data: customerData } = await supabase
       .from('customers')
       .select('stripe_customer_id')
@@ -71,7 +69,7 @@ export async function POST(req: Request) {
     let stripeCustomerId = customerData?.stripe_customer_id;
 
     if (!stripeCustomerId) {
-      console.log("🆕 Creando cliente en Stripe...");
+      console.log("🆕 Creando nuevo cliente en Stripe...");
       const customer = await stripe.customers.create({
         email: user.email,
         metadata: { supabase_user_id: user.id }
@@ -83,7 +81,9 @@ export async function POST(req: Request) {
         .insert({ id: user.id, stripe_customer_id: stripeCustomerId });
     }
 
-    // --- CREAR SESIÓN DE PAGO ---
+    // --- 4. CREAR SESIÓN DE PAGO ---
+    console.log(`🚀 Creando sesión con precio: ${priceId}`);
+    
     const session = await stripe.checkout.sessions.create({
       customer: stripeCustomerId,
       line_items: [{ price: priceId, quantity: 1 }],
@@ -91,13 +91,16 @@ export async function POST(req: Request) {
       success_url: `${baseUrl}/profile?payment=success`,
       cancel_url: `${baseUrl}/profile?payment=cancelled`,
       metadata: { userId: user.id },
+      // Opcional: Permite códigos de promoción si los configuras en Stripe
+      allow_promotion_codes: true, 
     });
 
-    console.log("🚀 URL GENERADA:", session.url);
+    console.log("✅ URL de pago generada:", session.url);
     return NextResponse.json({ url: session.url });
 
   } catch (error: any) {
-    console.error('🔥 CRASH:', error.message);
-    return new NextResponse('Error interno: ' + error.message, { status: 500 });
+    console.error('🔥 CRASH EN CHECKOUT:', error.message);
+    // Devolvemos el mensaje de error para verlo en el network tab del navegador si falla
+    return new NextResponse(JSON.stringify({ error: error.message }), { status: 500 });
   }
 }

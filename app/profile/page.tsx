@@ -297,7 +297,7 @@ function ProfileContent() {
         <div className="h-[80px] px-8 pb-6 pt-2 flex-shrink-0 z-20 flex flex-col items-center justify-center gap-2">
             <div className="flex items-center gap-2 bg-slate-900/60 backdrop-blur-sm border border-white/10 px-4 py-1.5 rounded-full shadow-lg">
                 <Disc size={14} className="text-violet-400" />
-                <p className="text-[10px] font-black text-white tracking-widest uppercase truncate max-w-[150px]">POKÉBINDERS APP</p>
+                <p className="text-[10px] font-black text-white tracking-widest uppercase truncate max-w-[150px]">POKÉBINDERS.COM</p>
             </div>
             {totalPages > 1 && <p className="text-[8px] text-white/30 font-mono tracking-widest">PÁGINA {pageIndex + 1} DE {totalPages}</p>}
         </div>
