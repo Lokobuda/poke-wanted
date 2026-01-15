@@ -35,7 +35,7 @@ export default function Slab({ slab, onClick, onDelete, className = '', showDele
     const imgUrl = s.image_url || s.custom_image_url
     const pokeName = s.pokemon_name || s.name || 'UNKNOWN'
 
-    // --- ESTILOS ---
+    // --- ESTILOS DE LA NOTA ---
     const gradeBoxBackground = isTen 
         ? 'linear-gradient(135deg, ' + goldColor + '20, rgba(0,0,0,0.8))' 
         : 'rgba(0,0,0,0.4)';
@@ -59,7 +59,7 @@ export default function Slab({ slab, onClick, onDelete, className = '', showDele
                     : '0 20px 40px -10px rgba(0,0,0,0.9)'
             }}
         >
-            {/* FONDO ANIMADO */}
+            {/* FONDO ANIMADO TRASERO (AURA) */}
             <div className={`absolute inset-0 rounded-[20px] overflow-hidden transition-opacity duration-500 z-0 ${isTen ? 'opacity-50 group-hover:opacity-70' : 'opacity-30 group-hover:opacity-60'}`}>
                 <div className="absolute top-[-50%] left-[-50%] w-[200%] h-[200%] animate-spin-slow"
                      style={{
@@ -72,31 +72,38 @@ export default function Slab({ slab, onClick, onDelete, className = '', showDele
             {/* MARCO CENTRAL */}
             <div className="absolute inset-[2px] bg-[#0a0a0a] rounded-[18px] z-10 flex flex-col overflow-hidden isolate">
                 
-                {/* --- EFECTO BURBUJAS (Sin mix-blend para asegurar que se vea en móvil) --- */}
+                {/* --- EFECTO BURBUJAS DE CHAMPAGNE (ANIMADO) --- */}
                 {isTen && (
-                    <div className="absolute inset-0 z-20 pointer-events-none opacity-40"
-                         style={{ 
-                             backgroundImage: `radial-gradient(circle at 50% 50%, rgba(255,255,255,0.8) 1px, transparent 1.5px), radial-gradient(circle at 20% 20%, rgba(255,255,255,0.6) 1px, transparent 1px)`, 
-                             backgroundSize: '16px 16px, 32px 32px',
-                             maskImage: 'linear-gradient(to bottom, black 10%, transparent 90%)'
-                         }} 
-                    />
+                    <div className="absolute inset-0 z-20 pointer-events-none overflow-hidden rounded-[18px]">
+                        {/* Generamos varias burbujas con estilos inline para variar su movimiento */}
+                        {[...Array(6)].map((_, i) => (
+                            <div 
+                                key={i}
+                                className="absolute bottom-0 rounded-full bg-white opacity-0 animate-float-up"
+                                style={{
+                                    left: `${Math.random() * 100}%`,
+                                    width: `${Math.random() * 4 + 2}px`,
+                                    height: `${Math.random() * 4 + 2}px`,
+                                    animationDelay: `${Math.random() * 2}s`,
+                                    animationDuration: `${Math.random() * 3 + 2}s`
+                                }}
+                            />
+                        ))}
+                    </div>
                 )}
 
                 <div className="absolute inset-0 border rounded-[18px] pointer-events-none z-50 transition-colors duration-500" 
                      style={{ borderColor: isTen ? goldColor + '60' : 'rgba(255,255,255,0.08)' }}></div>
                 
-                {/* --- HEADER OPTIMIZADO PARA MÓVIL --- */}
-                {/* Altura ajustada: h-[72px] en móvil, un poco más en PC si quieres */}
-                <div className="h-[72px] w-full relative z-30 bg-gradient-to-b from-[#151515] to-[#0a0a0a] border-b border-white/5 flex flex-row items-center justify-between px-2.5 py-2 gap-1.5">
+                {/* --- HEADER --- */}
+                <div className="h-[74px] w-full relative z-30 bg-gradient-to-b from-[#151515] to-[#0a0a0a] border-b border-white/5 flex flex-row items-center justify-between px-2.5 py-2 gap-1.5">
                     
-                    {/* IZQUIERDA: Flex Column estricto */}
+                    {/* IZQUIERDA */}
                     <div className="flex flex-col justify-center items-start flex-1 min-w-0 h-full">
                         <span className="text-[9px] font-black uppercase tracking-widest leading-none mb-0.5" style={{ color: companyColor }}>
                             {graderRaw}
                         </span>
                         
-                        {/* Nombre un poco más pequeño en móvil para evitar saltos de línea feos */}
                         <span className="text-[10px] md:text-[12px] font-bold text-slate-200 uppercase tracking-tight leading-tight truncate w-full">
                             {pokeName}
                         </span>
@@ -111,7 +118,7 @@ export default function Slab({ slab, onClick, onDelete, className = '', showDele
                         </div>
                     </div>
 
-                    {/* DERECHA: NOTA (Tamaño fijo 40px para que no baile) */}
+                    {/* DERECHA: NOTA */}
                     <div className="relative flex items-center justify-center shrink-0 w-10 h-10">
                         {isTen && (
                             <div className="absolute -top-2.5 left-1/2 -translate-x-1/2 text-yellow-400 drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] animate-bounce-subtle z-20">
@@ -142,16 +149,10 @@ export default function Slab({ slab, onClick, onDelete, className = '', showDele
                 </div>
             </div>
 
-            {/* --- BOTÓN PAPELERA ARREGLADO (MÓVIL) --- */}
+            {/* --- BOTÓN PAPELERA (Ajustado) --- */}
             {showDelete && onDelete && (
                 <button
-                    onClick={(e) => {
-                        e.stopPropagation();
-                        onDelete(e);
-                    }}
-                    // ESTILO MÓVIL: Pequeño (w-6), gris transparente (bg-slate-900/50), sin borde rojo por defecto.
-                    // Solo se pone rojo al tocar (active) o pasar ratón (hover en PC).
-                    // Posición: top-1 right-1 (muy en la esquina).
+                    onClick={(e) => { e.stopPropagation(); onDelete(e); }}
                     className="absolute -top-1.5 -right-1.5 z-[60] w-6 h-6 flex items-center justify-center rounded-full bg-slate-900/80 border border-white/10 text-slate-500 shadow-sm backdrop-blur-md transition-all hover:bg-red-500 hover:text-white hover:border-red-400 active:scale-90 active:bg-red-500 active:text-white"
                 >
                     <Trash2 size={10} />
@@ -161,8 +162,17 @@ export default function Slab({ slab, onClick, onDelete, className = '', showDele
             <style jsx>{`
                 @keyframes spin-slow { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
                 @keyframes bounce-subtle { 0%, 100% { transform: translate(-50%, -8%); } 50% { transform: translate(-50%, 8%); } }
+                
+                @keyframes float-up {
+                    0% { transform: translateY(100%) scale(0.5); opacity: 0; }
+                    20% { opacity: 0.8; }
+                    80% { opacity: 0.4; }
+                    100% { transform: translateY(-20px) scale(1.2); opacity: 0; }
+                }
+
                 .animate-spin-slow { animation: spin-slow 8s linear infinite; }
                 .animate-bounce-subtle { animation: bounce-subtle 2.5s infinite ease-in-out; }
+                .animate-float-up { animation: float-up 3s infinite linear; }
             `}</style>
         </div>
     )
