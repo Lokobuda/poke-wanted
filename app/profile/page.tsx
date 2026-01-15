@@ -8,7 +8,8 @@ import {
   CheckCircle2, X, Sparkles, ChevronDown, ChevronLeft, ChevronRight,
   Layers, BarChart3, Trophy, Target, Filter, Search, FolderOpen, 
   ShieldCheck, Package, Lock, 
-  Ticket, CreditCard, Zap, ArrowLeft, Copy, CheckSquare, LogOut, Trash2, Camera
+  Ticket, CreditCard, Zap, ArrowLeft, Copy, CheckSquare, LogOut, Trash2, Camera,
+  PartyPopper, Store // Iconos nuevos para la celebración
 } from 'lucide-react'
 import { toPng } from 'html-to-image'
 import download from 'downloadjs'
@@ -22,6 +23,7 @@ import TutorialOverlay, { TutorialStep } from '../components/TutorialOverlay'
 import { getCardScore } from '../../lib/scoring'
 import { RANKS, STARTER_PATHS } from '../../lib/ranks'
 
+// ... (PROFILE_STEPS se mantiene igual) ...
 const PROFILE_STEPS: TutorialStep[] = [
   { targetId: 'tour-start', title: '¡Hola, coleccionista! 👋', text: 'Veo que acabas de aterrizar. Tu perfil es tu cuartel general. Vamos a echarle un vistazo.', action: '¡Dale caña!', position: 'center' },
   { targetId: 'tour-rank', title: 'Tu Nivel de Prestigio 👑', text: 'Sube de nivel consiguiendo cartas y completando sets para seguir creciendo cada día como coleccionista.', action: 'Entendido', position: 'bottom' },
@@ -53,10 +55,12 @@ function ProfileContent() {
   const isTutorialChecked = useRef(false) 
   
   const [isRedeemOpen, setIsRedeemOpen] = useState(false)
-  const [redeemMode, setRedeemMode] = useState<'CODE' | 'SUBSCRIPTION'>('SUBSCRIPTION')
+  // Añadimos 'SUCCESS' como modo posible
+  const [redeemMode, setRedeemMode] = useState<'CODE' | 'SUBSCRIPTION' | 'SUCCESS'>('SUBSCRIPTION')
   const [redeemCode, setRedeemCode] = useState('')
   const [isRedeeming, setIsRedeeming] = useState(false)
   const [isSubscribing, setIsSubscribing] = useState(false)
+  const [successGym, setSuccessGym] = useState<{name: string, logo_url?: string} | null>(null) // Nuevo estado para la tienda encontrada
   
   const [stats, setStats] = useState({ totalCards: 0, totalAlbums: 0, globalCompletion: 0, projectsProgress: [] as any[], gradedCount: 0 })
   const [missingCards, setMissingCards] = useState<any[]>([])
@@ -76,10 +80,9 @@ function ProfileContent() {
   const [downloadSuccess, setDownloadSuccess] = useState(false)
   const [albumToDelete, setAlbumToDelete] = useState<string | null>(null)
   const [isDeletingAlbum, setIsDeletingAlbum] = useState(false)
-  
-  // MODO CAPTURA
   const [isScreenshotMode, setIsScreenshotMode] = useState(false)
 
+  // ... (useEffects y lógicas de carga idénticas) ...
   useEffect(() => { const checkTutorial = async () => { if (isTutorialChecked.current) return; const localCompleted = typeof window !== 'undefined' ? localStorage.getItem('tutorial_completed') === 'true' : false; if (localCompleted) { isTutorialChecked.current = true; return; } const { data: { session } } = await supabase.auth.getSession(); if (session) { const { data: profiles } = await supabase.from('profiles').select('has_completed_tutorial, starter_gen').eq('id', session.user.id).limit(1); const profile = profiles?.[0]; if (profile?.has_completed_tutorial) { localStorage.setItem('tutorial_completed', 'true') } else if (profile?.starter_gen && !profile?.has_completed_tutorial) { setShowTutorial(true) } } isTutorialChecked.current = true; }; checkTutorial() }, [])
   useEffect(() => { if (!searchParams) return; const openPro = searchParams.get('open_pro'); if (openPro === 'true') { setIsRedeemOpen(true); router.replace('/profile', { scroll: false }) } const paymentStatus = searchParams.get('payment'); if (paymentStatus === 'success') { toast.success('¡Bienvenido al Club PRO!'); router.replace('/profile', { scroll: false }); setTimeout(() => window.location.reload(), 1500) } else if (paymentStatus === 'cancelled') { toast.info('Proceso de pago cancelado'); router.replace('/profile', { scroll: false }) } }, [searchParams, router])
   useEffect(() => { let mounted = true; const runFetch = async () => { await fetchProfileData(mounted) }; runFetch(); return () => { mounted = false } }, [searchParams]) 
@@ -96,48 +99,15 @@ function ProfileContent() {
       setIsPosterMode(true);
   }
   
-  // --- MODO CAPTURA Y DESCARGA ---
-  const handleScreenshotMode = async () => {
-      setIsScreenshotMode(true);
-      setFlashActive(true);
-      setTimeout(() => setFlashActive(false), 500);
-      try { const elem = document.documentElement; if (elem.requestFullscreen) { await elem.requestFullscreen(); } } catch (err) { console.log("FullScreen no soportado", err); }
-  }
+  const handleScreenshotMode = async () => { setIsScreenshotMode(true); setFlashActive(true); setTimeout(() => setFlashActive(false), 500); try { const elem = document.documentElement; if (elem.requestFullscreen) { await elem.requestFullscreen(); } } catch (err) { console.log("FullScreen no soportado", err); } }
+  const handleExitScreenshot = async () => { setIsScreenshotMode(false); try { if (document.exitFullscreen && document.fullscreenElement) { await document.exitFullscreen(); } } catch (err) { console.log("Error saliendo fullscreen", err); } }
+  const handleDownloadPC = async (totalPages: number) => { if (isDownloading) return; setIsDownloading(true); setDownloadSuccess(false); try { const initialPage = posterPage; for (let i = 0; i < totalPages; i++) { setPosterPage(i); await new Promise(resolve => setTimeout(resolve, 1000)); const posterNode = document.getElementById('visible-poster'); if (posterNode) { const dataUrl = await toPng(posterNode, { quality: 0.95, pixelRatio: 1.5, cacheBust: true, backgroundColor: '#0a0a0a' }); download(dataUrl, `pokebinders-wanted-${username}-page-${i + 1}.png`); await new Promise(resolve => setTimeout(resolve, 500)); } } setPosterPage(initialPage); setDownloadSuccess(true); setTimeout(() => { setDownloadSuccess(false); setIsDownloading(false) }, 3000); } catch (error) { setIsDownloading(false); toast.error('Error al descargar'); } }
 
-  const handleExitScreenshot = async () => {
-      setIsScreenshotMode(false);
-      try { if (document.exitFullscreen && document.fullscreenElement) { await document.exitFullscreen(); } } catch (err) { console.log("Error saliendo fullscreen", err); }
-  }
-
-  const handleDownloadPC = async (totalPages: number) => {
-      if (isDownloading) return; 
-      setIsDownloading(true); 
-      setDownloadSuccess(false); 
-      try { 
-          const initialPage = posterPage; 
-          for (let i = 0; i < totalPages; i++) { 
-              setPosterPage(i); 
-              await new Promise(resolve => setTimeout(resolve, 1000)); 
-              const posterNode = document.getElementById('visible-poster'); 
-              if (posterNode) { 
-                  const dataUrl = await toPng(posterNode, { quality: 0.95, pixelRatio: 1.5, cacheBust: true, backgroundColor: '#0a0a0a' }); 
-                  download(dataUrl, `pokebinders-wanted-${username}-page-${i + 1}.png`); 
-                  await new Promise(resolve => setTimeout(resolve, 500)); 
-              } 
-          } 
-          setPosterPage(initialPage); 
-          setDownloadSuccess(true); 
-          setTimeout(() => { setDownloadSuccess(false); setIsDownloading(false) }, 3000); 
-      } catch (error) { setIsDownloading(false); toast.error('Error al descargar'); } 
-  }
-
-  // --- CARGA DE DATOS ---
   const fetchProfileData = async (mounted: boolean = true) => { try { const { data: { session } } = await supabase.auth.getSession(); if (!session || !mounted) return; setUser(session.user); const { data: profiles } = await supabase.from('profiles').select(`*, gyms (name, logo_url)`).eq('id', session.user.id).limit(1); const profile = profiles?.[0]; setDbProfile(profile); let currentStatus: 'INDIE' | 'GYM' | 'PRO' = 'INDIE'; if (profile) { if (profile.starter_gen && profile.starter_type) { setStarterData({ gen: profile.starter_gen, type: profile.starter_type }) } else { setShowStarterSelector(true) } if (profile.subscription_status === 'GYM') { currentStatus = 'GYM'; if (profile.gyms) { const g: any = profile.gyms; setGymData({ name: g.name, logo_url: g.logo_url }) } if (profile.gym_id) { const { data: offers } = await supabase.from('gym_offers').select('*').eq('gym_id', profile.gym_id).eq('is_active', true); if (offers) setGymOffers(offers) } } else if (profile.subscription_status === 'PRO') { currentStatus = 'PRO'; } } else { setShowStarterSelector(true) } setSubscriptionType(currentStatus); const { data: setsData } = await supabase.from('sets').select('id, name'); const setsMap = new Map<string, string>(); setsData?.forEach((s: any) => setsMap.set(s.id, s.name)); const { data: inventoryData } = await supabase.from('inventory').select('card_id, quantity_normal, quantity_holo, quantity_reverse').eq('user_id', session.user.id); const inventoryMap = new Map(); inventoryData?.forEach((item: any) => inventoryMap.set(item.card_id, item)); const { count: gradedCount } = await supabase.from('graded_cards').select('id', { count: 'exact' }).eq('user_id', session.user.id); const { count: sealedCount } = await supabase.from('sealed_products').select('id', { count: 'exact' }).eq('user_id', session.user.id); const totalGraded = gradedCount || 0; const totalSealed = sealedCount || 0; const gradedScoreBoost = totalGraded * 50; const sealedScoreBoost = totalSealed * 20; const { data: albumsData } = await supabase.from('albums').select(`id, name, is_master_set, set_id, created_at, album_cards (acquired, card_variants (id, image_url, cards (name, set_id, collector_number, rarity)))`).eq('user_id', session.user.id).order('created_at', { ascending: false }); let totalCardsOwned = 0; let totalSlotsTracked = 0; let totalOwnedInTracked = 0; let totalScore = 0; const projectsList: any[] = []; const missingMap = new Map(); projectsList.push({ id: 'graded-vault', name: 'Cámara Acorazada', type: 'Slabs Graded', owned: totalGraded, total: totalGraded, percent: 100, isVault: true, isLocked: currentStatus === 'INDIE' }); projectsList.push({ id: 'sealed-collection', name: 'Almacén Sellado', type: 'Sealed Products', owned: totalSealed, total: totalSealed, percent: 100, isSealed: true, isLocked: currentStatus === 'INDIE' }); albumsData?.forEach((album: any) => { const totalInAlbum = album.album_cards.length; let ownedInAlbum = 0; album.album_cards.forEach((c: any) => { const variant = c.card_variants; if (variant && variant.cards) { const cardInfo = Array.isArray(variant.cards) ? variant.cards[0] : variant.cards; if (cardInfo) { const invItem = inventoryMap.get(variant.id); const globalTotal = (invItem?.quantity_normal || 0) + (invItem?.quantity_holo || 0) + (invItem?.quantity_reverse || 0); if (globalTotal > 0) { ownedInAlbum++; totalCardsOwned++; totalScore += getCardScore({ set_id: cardInfo.set_id, card_number: cardInfo.collector_number, rarity: cardInfo.rarity, name: cardInfo.name }) } else { if (missingMap.has(variant.id)) { const existing = missingMap.get(variant.id); if (!existing.albumIds.includes(album.id)) existing.albumIds.push(album.id) } else { missingMap.set(variant.id, { id: variant.id, name: cardInfo.name, image: variant.image_url, number: cardInfo.collector_number, setId: cardInfo.set_id, setName: setsMap.get(cardInfo.set_id) || cardInfo.set_id, rarity: cardInfo.rarity, albumIds: [album.id] }) } } } } }); if (totalInAlbum > 0) { const percent = Math.round((ownedInAlbum / totalInAlbum) * 100); projectsList.push({ id: album.id, name: album.name, type: album.is_master_set ? 'Oficial' : 'Personal', owned: ownedInAlbum, total: totalInAlbum, percent: percent, isLocked: false, setId: album.set_id }); totalSlotsTracked += totalInAlbum; totalOwnedInTracked += ownedInAlbum } }); const finalScore = totalScore + gradedScoreBoost + sealedScoreBoost; setCollectorScore(finalScore); setStats({ totalCards: totalCardsOwned, totalAlbums: albumsData?.length || 0, globalCompletion: totalSlotsTracked > 0 ? Math.round((totalOwnedInTracked / totalSlotsTracked) * 100) : 0, projectsProgress: projectsList, gradedCount: totalGraded }); setMissingCards(Array.from(missingMap.values())); let rankIndex = 0; for (let i = 0; i < RANKS.length; i++) { if (finalScore >= RANKS[i].min) rankIndex = i } setCurrentRank(RANKS[rankIndex]); setNextRank(RANKS[rankIndex + 1] || null) } catch (error) { toast.error('Error al cargar perfil') } finally { if(mounted) setLoading(false) } }
 
-  // --- PAGOS Y CÓDIGOS ---
   const handleSubscribe = async () => { setIsSubscribing(true); try { const { data: { session } } = await supabase.auth.getSession(); const token = session?.access_token; if (!token) throw new Error('No se encontró sesión activa.'); const response = await fetch('/api/checkout', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` } }); if (!response.ok) { const err = await response.json(); throw new Error(err.error || await response.text()); } const data = await response.json(); if (data.url) window.location.href = data.url; } catch (error: any) { toast.error('Error de pago', { description: error.message }); setIsSubscribing(false); } }
   
-  // --- LÓGICA RESTAURADA PARA CANJEAR CÓDIGO ---
+  // --- LÓGICA CORREGIDA: MUESTRA PANTALLA DE ÉXITO ---
   const handleRedeemCode = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!redeemCode) return
@@ -147,37 +117,27 @@ function ProfileContent() {
         const { data: { session } } = await supabase.auth.getSession()
         if (!session) throw new Error("No hay sesión activa")
 
-        // 1. Buscar el gimnasio por el código
+        // 1. Buscar código y OBTENER LOGO_URL TAMBIÉN
         const { data: gym, error: gymError } = await supabase
             .from('gyms')
-            .select('id, name')
-            .eq('code', redeemCode.toUpperCase().trim()) // Importante: Mayúsculas y sin espacios
+            .select('id, name, logo_url') // IMPORTANTE: Pedir el logo
+            .eq('code', redeemCode.toUpperCase().trim())
             .eq('is_active', true)
             .single()
 
-        if (gymError || !gym) {
-            throw new Error("El código no es válido o ha expirado.")
-        }
+        if (gymError || !gym) throw new Error("El código no es válido o ha expirado.")
 
-        // 2. Actualizar el perfil del usuario
+        // 2. Actualizar perfil
         const { error: updateError } = await supabase
             .from('profiles')
-            .update({
-                subscription_status: 'GYM',
-                gym_id: gym.id
-            })
+            .update({ subscription_status: 'GYM', gym_id: gym.id })
             .eq('id', session.user.id)
 
         if (updateError) throw new Error("Error al vincular con la tienda.")
 
-        // 3. Éxito
-        toast.success(`¡Bienvenido al equipo ${gym.name}!`, {
-            description: "Tu perfil ahora tiene acceso de Socio."
-        })
-        
-        setIsRedeemOpen(false)
-        setRedeemCode('')
-        // Recargar datos para ver los cambios
+        // 3. CAMBIAR A MODO ÉXITO EN VEZ DE CERRAR
+        setSuccessGym({ name: gym.name, logo_url: gym.logo_url })
+        setRedeemMode('SUCCESS') // <--- AQUÍ ESTÁ LA CLAVE
         await fetchProfileData()
 
     } catch (error: any) {
@@ -372,7 +332,7 @@ function ProfileContent() {
         )}
 
         <div className={`grid grid-cols-1 ${gridLayoutClass} gap-6 mb-12 auto-rows-fr`}>
-            {/* WANTED LIST Y SOCIOS */}
+            {/* WANTED LIST Y SOCIOS - SIN CAMBIOS */}
             <div id="tour-wanted" className="bg-slate-900/40 backdrop-blur-xl rounded-[40px] p-10 border border-white/10 shadow-2xl relative overflow-hidden flex flex-col h-full">
                 <div className="relative z-10 flex-1 flex flex-col">
                     <div className="flex justify-between items-center mb-10"><h3 className="text-3xl font-black text-white flex items-center gap-3"><Sparkles className="text-violet-400" /> Wanted List</h3></div>
@@ -465,17 +425,90 @@ function ProfileContent() {
 
       {/* MODALES */}
       <ConfirmModal isOpen={!!albumToDelete} onClose={() => setAlbumToDelete(null)} onConfirm={handleConfirmDeleteAlbum} title="¿Eliminar Álbum?" description="Esta acción eliminará el álbum y todas las estadísticas asociadas." confirmText="Eliminar Álbum" isProcessing={isDeletingAlbum} variant="danger" />
+      
+      {/* MODAL DE SUSCRIPCIÓN / CÓDIGO */}
       {isRedeemOpen && (
           <div className="fixed inset-0 z-[300] bg-black/90 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200">
               <div className="relative w-full max-w-4xl bg-slate-950 border border-white/10 rounded-3xl shadow-2xl overflow-hidden flex flex-col md:flex-row h-[600px] md:h-[500px]">
+                  
+                  {/* LATERAL IZQUIERDO (Info) */}
                   <div className="w-full md:w-2/5 bg-gradient-to-br from-amber-500/20 via-slate-900 to-black p-8 flex flex-col relative overflow-hidden">
                       <div className="absolute top-0 right-0 w-64 h-64 bg-amber-500/20 blur-[100px] rounded-full pointer-events-none" />
-                      <div className="relative z-10"><h2 className="text-3xl font-black text-white italic tracking-tighter uppercase mb-2">Acceso <span className="text-amber-500">PRO</span></h2><p className="text-amber-200/60 text-sm font-medium mb-8">Desbloquea todo el potencial de tu colección.</p><div className="space-y-6"><div className="flex items-center gap-4 group"><div className="w-10 h-10 bg-amber-500/10 rounded-xl flex items-center justify-center border border-amber-500/20 text-amber-400 group-hover:scale-110 transition-transform"><ShieldCheck size={20} /></div><div><h4 className="text-white font-bold text-sm">Cámara Acorazada</h4><p className="text-slate-400 text-xs">Gestiona tus cartas graded (PSA, BGS...)</p></div></div><div className="flex items-center gap-4 group"><div className="w-10 h-10 bg-indigo-500/10 rounded-xl flex items-center justify-center border border-indigo-500/20 text-indigo-400 group-hover:scale-110 transition-transform"><Package size={20} /></div><div><h4 className="text-white font-bold text-sm">Almacén Sellado</h4><p className="text-slate-400 text-xs">Control de ETBs, Boosters y Cajas.</p></div></div><div className="flex items-center gap-4 group"><div className="w-10 h-10 bg-emerald-500/10 rounded-xl flex items-center justify-center border border-emerald-500/20 text-emerald-400 group-hover:scale-110 transition-transform"><Sparkles size={20} /></div><div><h4 className="text-white font-bold text-sm">Sin Límites</h4><p className="text-slate-400 text-xs">Crea tantos álbumes como quieras.</p></div></div></div></div><div className="mt-auto pt-8 relative z-10"><div className="flex items-center gap-2 text-[10px] uppercase tracking-widest text-slate-500 font-bold"><CheckCircle2 size={12} className="text-amber-500" /> Cancelación flexible</div></div></div>
-                  <div className="w-full md:w-3/5 bg-slate-950 p-8 flex flex-col">
-                      <button onClick={() => setIsRedeemOpen(false)} className="absolute top-6 right-6 p-2 text-slate-500 hover:text-white transition-colors bg-white/5 hover:bg-white/10 rounded-full"><X size={18} /></button>
-                      <div className="flex p-1 bg-slate-900 rounded-xl mb-8 self-start border border-white/5"><button onClick={() => setRedeemMode('SUBSCRIPTION')} className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${redeemMode === 'SUBSCRIPTION' ? 'bg-violet-600 text-white shadow-lg' : 'text-slate-500 hover:text-white'}`}>Suscripción Mensual</button><button onClick={() => setRedeemMode('CODE')} className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${redeemMode === 'CODE' ? 'bg-amber-500 text-black shadow-lg' : 'text-slate-500 hover:text-white'}`}>Código de Tienda</button></div>
+                      <div className="relative z-10">
+                          <h2 className="text-3xl font-black text-white italic tracking-tighter uppercase mb-2">Acceso <span className="text-amber-500">PRO</span></h2>
+                          <p className="text-amber-200/60 text-sm font-medium mb-8">Desbloquea todo el potencial de tu colección.</p>
+                          <div className="space-y-6">
+                              <div className="flex items-center gap-4 group"><div className="w-10 h-10 bg-amber-500/10 rounded-xl flex items-center justify-center border border-amber-500/20 text-amber-400 group-hover:scale-110 transition-transform"><ShieldCheck size={20} /></div><div><h4 className="text-white font-bold text-sm">Cámara Acorazada</h4><p className="text-slate-400 text-xs">Gestiona tus cartas graded (PSA, BGS...)</p></div></div>
+                              <div className="flex items-center gap-4 group"><div className="w-10 h-10 bg-indigo-500/10 rounded-xl flex items-center justify-center border border-indigo-500/20 text-indigo-400 group-hover:scale-110 transition-transform"><Package size={20} /></div><div><h4 className="text-white font-bold text-sm">Almacén Sellado</h4><p className="text-slate-400 text-xs">Control de ETBs, Boosters y Cajas.</p></div></div>
+                              <div className="flex items-center gap-4 group"><div className="w-10 h-10 bg-emerald-500/10 rounded-xl flex items-center justify-center border border-emerald-500/20 text-emerald-400 group-hover:scale-110 transition-transform"><Sparkles size={20} /></div><div><h4 className="text-white font-bold text-sm">Sin Límites</h4><p className="text-slate-400 text-xs">Crea tantos álbumes como quieras.</p></div></div>
+                          </div>
+                      </div>
+                      <div className="mt-auto pt-8 relative z-10"><div className="flex items-center gap-2 text-[10px] uppercase tracking-widest text-slate-500 font-bold"><CheckCircle2 size={12} className="text-amber-500" /> Cancelación flexible</div></div>
+                  </div>
+
+                  {/* LATERAL DERECHO (Interacción) */}
+                  <div className="w-full md:w-3/5 bg-slate-950 p-8 flex flex-col relative">
+                      <button onClick={() => { setIsRedeemOpen(false); setRedeemMode('SUBSCRIPTION'); setSuccessGym(null); }} className="absolute top-6 right-6 p-2 text-slate-500 hover:text-white transition-colors bg-white/5 hover:bg-white/10 rounded-full z-20"><X size={18} /></button>
+                      
+                      {redeemMode !== 'SUCCESS' && (
+                          <div className="flex p-1 bg-slate-900 rounded-xl mb-8 self-start border border-white/5">
+                              <button onClick={() => setRedeemMode('SUBSCRIPTION')} className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${redeemMode === 'SUBSCRIPTION' ? 'bg-violet-600 text-white shadow-lg' : 'text-slate-500 hover:text-white'}`}>Suscripción Mensual</button>
+                              <button onClick={() => setRedeemMode('CODE')} className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${redeemMode === 'CODE' ? 'bg-amber-500 text-black shadow-lg' : 'text-slate-500 hover:text-white'}`}>Código de Tienda</button>
+                          </div>
+                      )}
+
                       <div className="flex-1 flex flex-col justify-center">
-                          {redeemMode === 'CODE' ? (<div className="animate-in fade-in slide-in-from-right-4 duration-300"><h3 className="text-xl font-bold text-white mb-2">Canjear Acceso</h3><p className="text-slate-400 text-sm mb-6">Introduce el código único proporcionado por tu tienda local asociada.</p><form onSubmit={handleRedeemCode} className="space-y-4"><div className="relative group/input"><Ticket className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within/input:text-amber-500 transition-colors" size={20} /><input type="text" placeholder="CÓDIGO (Ej: CARDZONE)" className="w-full bg-slate-900/50 border border-white/10 rounded-xl py-4 pl-12 pr-4 text-white font-mono font-bold uppercase placeholder:text-slate-600 focus:outline-none focus:border-amber-500 focus:bg-slate-900 transition-all" value={redeemCode} onChange={(e) => setRedeemCode(e.target.value.toUpperCase())} /></div><button type="submit" disabled={isRedeeming || !redeemCode} className="w-full bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-black py-4 rounded-xl text-sm font-black uppercase tracking-widest disabled:opacity-50 transition-all shadow-lg shadow-amber-900/20 hover:scale-[1.02] active:scale-95 flex items-center justify-center gap-2">{isRedeeming ? <Loader2 className="animate-spin" size={18} /> : <>Canjear Código <ChevronRight size={18}/></>}</button></form></div>) : (<div className="animate-in fade-in slide-in-from-left-4 duration-300 relative"><div className="opacity-100"><div className="flex justify-between items-baseline mb-2"><h3 className="text-xl font-bold text-white">Plan Coleccionista</h3><span className="text-2xl font-black text-white">1.99€<span className="text-sm font-medium text-slate-500">/mes</span></span></div><p className="text-slate-400 text-sm mb-6">Suscripción mensual flexible. Cancela cuando quieras.</p><div className="bg-slate-900/50 border border-white/5 rounded-xl p-4 mb-6 space-y-3"><div className="flex items-center gap-3 text-sm text-slate-300"><CheckCircle2 size={16} className="text-violet-500"/> <span>Acceso completo a la App</span></div><div className="flex items-center gap-3 text-sm text-slate-300"><CheckCircle2 size={16} className="text-violet-500"/> <span>Badge de perfil PRO</span></div></div><button onClick={handleSubscribe} disabled={isSubscribing} className="w-full bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-400 hover:to-amber-400 text-black py-4 rounded-xl text-sm font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-all shadow-lg active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed">{isSubscribing ? <Loader2 className="animate-spin" size={18}/> : <><CreditCard size={18} /> Suscribirse</>}</button></div></div>)}
+                          {redeemMode === 'SUCCESS' && successGym ? (
+                              // --- PANTALLA DE ÉXITO DE LA TIENDA ---
+                              <div className="animate-in zoom-in-95 fade-in duration-500 text-center flex flex-col items-center">
+                                  <div className="mb-6 relative">
+                                      <div className="absolute inset-0 bg-amber-500 blur-3xl opacity-20 rounded-full animate-pulse"></div>
+                                      {successGym.logo_url ? (
+                                          <img src={successGym.logo_url} alt={successGym.name} className="w-24 h-24 object-contain relative z-10 drop-shadow-2xl" />
+                                      ) : (
+                                          <div className="w-24 h-24 bg-amber-500 rounded-full flex items-center justify-center relative z-10 text-black shadow-2xl">
+                                              <Store size={40} />
+                                          </div>
+                                      )}
+                                      <div className="absolute -top-2 -right-2 text-amber-400 animate-bounce"><PartyPopper size={32} /></div>
+                                  </div>
+                                  <h3 className="text-3xl font-black text-white italic tracking-tighter uppercase mb-2">¡Código Canjeado!</h3>
+                                  <p className="text-slate-400 text-sm mb-8 max-w-xs mx-auto leading-relaxed">
+                                      Gracias a <span className="text-amber-400 font-bold">{successGym.name}</span>, ahora tienes acceso completo a todas las funciones PRO.
+                                  </p>
+                                  <button onClick={() => { setIsRedeemOpen(false); setRedeemMode('SUBSCRIPTION'); setSuccessGym(null); }} className="px-8 py-4 bg-white text-black font-black text-sm uppercase tracking-widest rounded-xl hover:scale-105 transition-transform shadow-xl">
+                                      Ir a mi Perfil
+                                  </button>
+                              </div>
+                          ) : redeemMode === 'CODE' ? (
+                              <div className="animate-in fade-in slide-in-from-right-4 duration-300">
+                                  <h3 className="text-xl font-bold text-white mb-2">Canjear Acceso</h3>
+                                  <p className="text-slate-400 text-sm mb-6">Introduce el código único proporcionado por tu tienda local asociada.</p>
+                                  <form onSubmit={handleRedeemCode} className="space-y-4">
+                                      <div className="relative group/input">
+                                          <Ticket className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within/input:text-amber-500 transition-colors" size={20} />
+                                          <input type="text" placeholder="CÓDIGO (Ej: CARDZONE)" className="w-full bg-slate-900/50 border border-white/10 rounded-xl py-4 pl-12 pr-4 text-white font-mono font-bold uppercase placeholder:text-slate-600 focus:outline-none focus:border-amber-500 focus:bg-slate-900 transition-all" value={redeemCode} onChange={(e) => setRedeemCode(e.target.value.toUpperCase())} />
+                                      </div>
+                                      <button type="submit" disabled={isRedeeming || !redeemCode} className="w-full bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-black py-4 rounded-xl text-sm font-black uppercase tracking-widest disabled:opacity-50 transition-all shadow-lg shadow-amber-900/20 hover:scale-[1.02] active:scale-95 flex items-center justify-center gap-2">
+                                          {isRedeeming ? <Loader2 className="animate-spin" size={18} /> : <>Canjear Código <ChevronRight size={18}/></>}
+                                      </button>
+                                  </form>
+                              </div>
+                          ) : (
+                              <div className="animate-in fade-in slide-in-from-left-4 duration-300 relative">
+                                  <div className="opacity-100">
+                                      <div className="flex justify-between items-baseline mb-2"><h3 className="text-xl font-bold text-white">Plan Coleccionista</h3><span className="text-2xl font-black text-white">1.99€<span className="text-sm font-medium text-slate-500">/mes</span></span></div>
+                                      <p className="text-slate-400 text-sm mb-6">Suscripción mensual flexible. Cancela cuando quieras.</p>
+                                      <div className="bg-slate-900/50 border border-white/5 rounded-xl p-4 mb-6 space-y-3">
+                                          <div className="flex items-center gap-3 text-sm text-slate-300"><CheckCircle2 size={16} className="text-violet-500"/> <span>Acceso completo a la App</span></div>
+                                          <div className="flex items-center gap-3 text-sm text-slate-300"><CheckCircle2 size={16} className="text-violet-500"/> <span>Badge de perfil PRO</span></div>
+                                      </div>
+                                      <button onClick={handleSubscribe} disabled={isSubscribing} className="w-full bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-400 hover:to-amber-400 text-black py-4 rounded-xl text-sm font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-all shadow-lg active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed">
+                                          {isSubscribing ? <Loader2 className="animate-spin" size={18}/> : <><CreditCard size={18} /> Suscribirse</>}
+                                      </button>
+                                  </div>
+                              </div>
+                          )}
                       </div>
                   </div>
               </div>
