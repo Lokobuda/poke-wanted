@@ -36,6 +36,23 @@ export default function Slab({ slab, onClick, onDelete, className = '', showDele
     const imgUrl = s.image_url || s.custom_image_url
     const pokeName = s.pokemon_name || s.name || 'UNKNOWN'
 
+    // --- ESTILOS COMPLEJOS EXTRAÍDOS (PARA EVITAR ERROR DE SINTAXIS) ---
+    const gradeBoxStyle = {
+        background: isTen 
+            ? `linear-gradient(135deg, ${goldColor}20, rgba(0,0,0,0.8))` 
+            : 'rgba(0,0,0,0.4)',
+        boxShadow: isTen 
+            ? `inset 0 0 15px ${goldGlowTight}` 
+            : `0 0 10px -2px ${companyGlow}`
+    }
+
+    const gradeTextStyle = {
+        color: isTen ? goldColor : 'white',
+        textShadow: isTen 
+            ? `0 2px 10px ${goldGlowTight}` 
+            : `0 0 10px ${companyColor}`
+    }
+
     return (
         <div 
             onClick={onClick}
@@ -60,13 +77,14 @@ export default function Slab({ slab, onClick, onDelete, className = '', showDele
             {/* MARCO CENTRAL */}
             <div className="absolute inset-[2px] bg-[#0a0a0a] rounded-[18px] z-10 flex flex-col overflow-hidden isolate">
                 
-                {/* --- EFECTO BURBUJAS / FOIL (RECUPERADO) --- */}
+                {/* --- EFECTO BURBUJAS / FOIL --- */}
                 {isTen && (
-                    <div className="absolute inset-0 z-20 pointer-events-none opacity-40 mix-blend-overlay"
+                    <div className="absolute inset-0 z-20 pointer-events-none opacity-50 mix-blend-overlay"
                          style={{ 
-                             backgroundImage: `radial-gradient(circle at 50% 50%, white 1px, transparent 1px), radial-gradient(circle at 20% 20%, rgba(255,255,255,0.8) 1px, transparent 1px)`, 
-                             backgroundSize: '12px 12px, 24px 24px',
-                             maskImage: 'linear-gradient(to bottom, black 0%, transparent 60%)'
+                             backgroundImage: `radial-gradient(#ffffff 1.5px, transparent 1.5px), radial-gradient(#ffffff 1px, transparent 1px)`,
+                             backgroundSize: '24px 24px, 16px 16px',
+                             backgroundPosition: '0 0, 12px 12px',
+                             maskImage: 'linear-gradient(to bottom, black 20%, transparent 80%)'
                          }} 
                     />
                 )}
@@ -75,45 +93,40 @@ export default function Slab({ slab, onClick, onDelete, className = '', showDele
                      style={{ borderColor: isTen ? `${goldColor}60` : 'rgba(255,255,255,0.08)' }}></div>
                 
                 {/* --- HEADER --- */}
-                <div className="h-[68px] w-full relative z-30 bg-gradient-to-b from-[#151515] to-[#0a0a0a] border-b border-white/5 flex items-center justify-between px-3 py-1.5">
+                <div className="h-[72px] w-full relative z-30 bg-gradient-to-b from-[#151515] to-[#0a0a0a] border-b border-white/5 flex flex-row items-center justify-between px-3 py-2 gap-2">
                     
-                    {/* IZQUIERDA: Info */}
-                    <div className="flex flex-col justify-center flex-1 min-w-0 pr-2">
-                        {/* Empresa */}
-                        <span className="text-[9px] font-black uppercase tracking-widest leading-none mb-0.5" style={{ color: companyColor }}>
+                    {/* IZQUIERDA: Textos */}
+                    <div className="flex flex-col justify-center items-start flex-1 min-w-0 h-full">
+                        <span className="text-[10px] font-black uppercase tracking-widest leading-none mb-1" style={{ color: companyColor }}>
                             {graderRaw}
                         </span>
                         
-                        {/* Nombre Pokemon (Clamp para evitar desbordes) */}
-                        <span className="font-bold text-slate-200 uppercase tracking-tight leading-none truncate w-full" style={{ fontSize: 'clamp(9px, 2.5vw, 11px)' }}>
+                        <span className="text-[11px] font-bold text-slate-200 uppercase tracking-tight leading-tight truncate w-full">
                             {pokeName}
                         </span>
                         
-                        {/* Serie / Set */}
                         <div className="flex items-center gap-1.5 mt-0.5 opacity-60 w-full overflow-hidden">
-                             <span className="text-[7px] font-bold text-slate-400 tracking-wider uppercase truncate shrink-0">{s.set_name || 'UNK'}</span>
+                             <span className="text-[8px] font-bold text-slate-400 tracking-wider uppercase truncate shrink-0">{s.set_name || 'UNK'}</span>
                              {certNumber && (
-                                <span className="text-[6px] font-mono text-slate-500 truncate border-l border-white/20 pl-1.5">
+                                <span className="text-[7px] font-mono text-slate-500 truncate border-l border-white/20 pl-1.5">
                                     #{certNumber}
                                 </span>
                              )}
                         </div>
                     </div>
 
-                    {/* DERECHA: NOTA (AQUÍ ESTABA EL ERROR DE SINTAXIS) */}
-                    <div className="relative flex items-center justify-center shrink-0">
+                    {/* DERECHA: NOTA (USANDO EL ESTILO EXTRAÍDO) */}
+                    <div className="relative flex items-center justify-center shrink-0 w-10 h-10">
                         {isTen && (
                             <div className="absolute -top-3 left-1/2 -translate-x-1/2 text-yellow-400 drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] animate-bounce-subtle z-20">
-                                <Crown size={10} fill="#ffd700" strokeWidth={0} />
+                                <Crown size={12} fill="#ffd700" strokeWidth={0} />
                             </div>
                         )}
-                        <div className={`flex items-center justify-center w-10 h-9 rounded-lg border backdrop-blur-md transition-all duration-500 ${isTen ? 'border-yellow-500/40' : 'border-white/10'}`}
-                             style={{ 
-                                 background: isTen ? `linear-gradient(135deg, ${goldColor}20, rgba(0,0,0,0.8))` : 'rgba(0,0,0,0.4)', 
-                                 boxShadow: isTen ? `inset 0 0 15px ${goldGlowTight}` : `0 0 10px -2px ${companyGlow}` 
-                             }}>
-                            <span className="text-[20px] font-black leading-none drop-shadow-lg" 
-                                style={{ color: isTen ? goldColor : 'white', textShadow: isTen ? `0 2px 10px ${goldGlowTight}` : `0 0 10px ${companyColor}` }}>
+                        <div 
+                            className={`flex items-center justify-center w-full h-full rounded-lg border backdrop-blur-md transition-all duration-500 ${isTen ? 'border-yellow-500/40' : 'border-white/10'}`}
+                            style={gradeBoxStyle}
+                        >
+                            <span className="text-[22px] font-black leading-none drop-shadow-lg" style={gradeTextStyle}>
                                 {gradeVal}
                             </span>
                         </div>
@@ -122,7 +135,6 @@ export default function Slab({ slab, onClick, onDelete, className = '', showDele
 
                 {/* --- IMAGEN --- */}
                 <div className="flex-1 relative w-full bg-[#030303] flex items-center justify-center p-2 overflow-hidden shadow-[inset_0_10px_30px_rgba(0,0,0,1)]">
-                    {/* Fondo radiante detrás de la carta */}
                     <div className={`absolute inset-0 transition-opacity duration-700 ${isTen ? 'opacity-40 group-hover:opacity-60' : 'opacity-20 group-hover:opacity-40'}`}
                         style={{ background: `radial-gradient(circle at center, ${companyColor}, transparent 70%)`, filter: 'blur(25px)' }}
                     />
@@ -134,16 +146,16 @@ export default function Slab({ slab, onClick, onDelete, className = '', showDele
                 </div>
             </div>
 
-            {/* --- BOTÓN PAPELERA SUTIL Y FUNCIONAL --- */}
+            {/* --- BOTÓN PAPELERA SUTIL --- */}
             {showDelete && onDelete && (
                 <button
                     onClick={(e) => {
                         e.stopPropagation();
                         onDelete(e);
                     }}
-                    className="absolute -top-1.5 -right-1.5 z-[60] w-7 h-7 flex items-center justify-center rounded-full bg-slate-900/90 border border-white/10 text-slate-500 shadow-xl backdrop-blur-md transition-all hover:bg-red-500 hover:text-white hover:border-red-400 active:scale-90 active:bg-red-500 active:text-white"
+                    className="absolute -top-2 -right-2 z-[60] w-8 h-8 flex items-center justify-center rounded-full bg-slate-900 border border-white/10 text-slate-600 shadow-xl opacity-100 hover:text-white hover:bg-red-500 hover:border-red-500 active:bg-red-500 active:text-white active:scale-95 transition-all"
                 >
-                    <Trash2 size={12} />
+                    <Trash2 size={14} />
                 </button>
             )}
 
