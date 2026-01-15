@@ -22,6 +22,7 @@ import TutorialOverlay, { TutorialStep } from '../components/TutorialOverlay'
 import { getCardScore } from '../../lib/scoring'
 import { RANKS, STARTER_PATHS } from '../../lib/ranks'
 
+// ... (PROFILE_STEPS y demás lógica se mantiene igual)
 const PROFILE_STEPS: TutorialStep[] = [
   { targetId: 'tour-start', title: '¡Hola, coleccionista! 👋', text: 'Veo que acabas de aterrizar. Tu perfil es tu cuartel general. Vamos a echarle un vistazo.', action: '¡Dale caña!', position: 'center' },
   { targetId: 'tour-rank', title: 'Tu Nivel de Prestigio 👑', text: 'Sube de nivel consiguiendo cartas y completando sets para seguir creciendo cada día como coleccionista.', action: 'Entendido', position: 'bottom' },
@@ -77,20 +78,18 @@ function ProfileContent() {
   const [albumToDelete, setAlbumToDelete] = useState<string | null>(null)
   const [isDeletingAlbum, setIsDeletingAlbum] = useState(false)
   
-  // NUEVO ESTADO: MODO CAPTURA
+  // MODO CAPTURA
   const [isScreenshotMode, setIsScreenshotMode] = useState(false)
+  const [showExitHint, setShowExitHint] = useState(false)
 
-  // ... (useEffects y lógica de carga igual) ...
-  useEffect(() => {
-    const checkTutorial = async () => { if (isTutorialChecked.current) return; const localCompleted = typeof window !== 'undefined' ? localStorage.getItem('tutorial_completed') === 'true' : false; if (localCompleted) { isTutorialChecked.current = true; return; } const { data: { session } } = await supabase.auth.getSession(); if (session) { const { data: profiles } = await supabase.from('profiles').select('has_completed_tutorial, starter_gen').eq('id', session.user.id).limit(1); const profile = profiles?.[0]; if (profile?.has_completed_tutorial) { localStorage.setItem('tutorial_completed', 'true') } else if (profile?.starter_gen && !profile?.has_completed_tutorial) { setShowTutorial(true) } } isTutorialChecked.current = true; }
-    checkTutorial()
-  }, [])
+  // ... (useEffects se mantienen igual, comprimidos para brevedad) ...
+  useEffect(() => { const checkTutorial = async () => { if (isTutorialChecked.current) return; const localCompleted = typeof window !== 'undefined' ? localStorage.getItem('tutorial_completed') === 'true' : false; if (localCompleted) { isTutorialChecked.current = true; return; } const { data: { session } } = await supabase.auth.getSession(); if (session) { const { data: profiles } = await supabase.from('profiles').select('has_completed_tutorial, starter_gen').eq('id', session.user.id).limit(1); const profile = profiles?.[0]; if (profile?.has_completed_tutorial) { localStorage.setItem('tutorial_completed', 'true') } else if (profile?.starter_gen && !profile?.has_completed_tutorial) { setShowTutorial(true) } } isTutorialChecked.current = true; }; checkTutorial() }, [])
   useEffect(() => { if (!searchParams) return; const openPro = searchParams.get('open_pro'); if (openPro === 'true') { setIsRedeemOpen(true); router.replace('/profile', { scroll: false }) } const paymentStatus = searchParams.get('payment'); if (paymentStatus === 'success') { toast.success('¡Bienvenido al Club PRO!'); router.replace('/profile', { scroll: false }); setTimeout(() => window.location.reload(), 1500) } else if (paymentStatus === 'cancelled') { toast.info('Proceso de pago cancelado'); router.replace('/profile', { scroll: false }) } }, [searchParams, router])
   useEffect(() => { let mounted = true; const runFetch = async () => { await fetchProfileData(mounted) }; runFetch(); return () => { mounted = false } }, [searchParams]) 
 
+  // ... (useMemos y funciones auxiliares igual) ...
   const uniqueSets = useMemo(() => { const sets = missingCards.map(c => ({ id: c.setId, name: c.setName })); const unique = sets.filter((v, i, a) => a.findIndex(t => t.id === v.id) === i); return unique.sort((a, b) => a.name.localeCompare(b.name)) }, [missingCards])
   const filteredCards = useMemo(() => { return missingCards.filter(card => { const matchSet = filterSet === 'ALL' || card.setId === filterSet; const matchRarity = filterRarity === 'ALL' || card.rarity === filterRarity; const matchAlbum = filterAlbum === 'ALL' || card.albumIds.includes(filterAlbum); const matchSearch = card.name.toLowerCase().includes(searchQuery.toLowerCase()) || card.setName.toLowerCase().includes(searchQuery.toLowerCase()); return matchSet && matchRarity && matchAlbum && matchSearch }) }, [missingCards, filterSet, filterRarity, filterAlbum, searchQuery])
-  
   const toggleSelectCard = (id: string) => setSelectedForOrder(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id])
   const handleSelectAllFiltered = () => { const allIds = filteredCards.map(c => c.id); const allSelected = allIds.every(id => selectedForOrder.includes(id)); if (allSelected) { setSelectedForOrder(prev => prev.filter(id => !allIds.includes(id))) } else { setSelectedForOrder(prev => { const newSet = new Set([...prev, ...allIds]); return Array.from(newSet) }) } }
   const handleLoadMore = () => setVisibleCount(prev => prev + 50)
@@ -101,13 +100,17 @@ function ProfileContent() {
       setIsPosterMode(true);
   }
   
-  // --- MODO CAPTURA DE PANTALLA (SOLUCIÓN MÓVIL) ---
+  // --- MODO CAPTURA DE PANTALLA LIMPIO ---
   const handleScreenshotMode = () => {
       setIsScreenshotMode(true);
-      // Flash visual para indicar que estamos listos
+      setShowExitHint(false); 
+      
+      // Flash visual
       setFlashActive(true);
       setTimeout(() => setFlashActive(false), 500);
-      toast("📸 Haz captura de pantalla ahora. Toca para volver.", { duration: 4000 });
+      
+      // Mostrar texto de salir DESPUÉS de 4 segundos
+      setTimeout(() => setShowExitHint(true), 4000);
   }
 
   // --- MODO DESCARGA (SOLO PC) ---
@@ -133,11 +136,9 @@ function ProfileContent() {
       } catch (error) { setIsDownloading(false); toast.error('Error al descargar'); } 
   }
 
-  const fetchProfileData = async (mounted: boolean = true) => { /* ... (Lógica de carga igual) ... */ 
-    try { const { data: { session } } = await supabase.auth.getSession(); if (!session || !mounted) return; setUser(session.user); const { data: profiles } = await supabase.from('profiles').select(`*, gyms (name, logo_url)`).eq('id', session.user.id).limit(1); const profile = profiles?.[0]; setDbProfile(profile); let currentStatus: 'INDIE' | 'GYM' | 'PRO' = 'INDIE'; if (profile) { if (profile.starter_gen && profile.starter_type) { setStarterData({ gen: profile.starter_gen, type: profile.starter_type }) } else { setShowStarterSelector(true) } if (profile.subscription_status === 'GYM') { currentStatus = 'GYM'; if (profile.gyms) { const g: any = profile.gyms; setGymData({ name: g.name, logo_url: g.logo_url }) } if (profile.gym_id) { const { data: offers } = await supabase.from('gym_offers').select('*').eq('gym_id', profile.gym_id).eq('is_active', true); if (offers) setGymOffers(offers) } } else if (profile.subscription_status === 'PRO') { currentStatus = 'PRO'; } } else { setShowStarterSelector(true) } setSubscriptionType(currentStatus); const { data: setsData } = await supabase.from('sets').select('id, name'); const setsMap = new Map<string, string>(); setsData?.forEach((s: any) => setsMap.set(s.id, s.name)); const { data: inventoryData } = await supabase.from('inventory').select('card_id, quantity_normal, quantity_holo, quantity_reverse').eq('user_id', session.user.id); const inventoryMap = new Map(); inventoryData?.forEach((item: any) => inventoryMap.set(item.card_id, item)); const { count: gradedCount } = await supabase.from('graded_cards').select('id', { count: 'exact' }).eq('user_id', session.user.id); const { count: sealedCount } = await supabase.from('sealed_products').select('id', { count: 'exact' }).eq('user_id', session.user.id); const totalGraded = gradedCount || 0; const totalSealed = sealedCount || 0; const gradedScoreBoost = totalGraded * 50; const sealedScoreBoost = totalSealed * 20; const { data: albumsData } = await supabase.from('albums').select(`id, name, is_master_set, set_id, created_at, album_cards (acquired, card_variants (id, image_url, cards (name, set_id, collector_number, rarity)))`).eq('user_id', session.user.id).order('created_at', { ascending: false }); let totalCardsOwned = 0; let totalSlotsTracked = 0; let totalOwnedInTracked = 0; let totalScore = 0; const projectsList: any[] = []; const missingMap = new Map(); projectsList.push({ id: 'graded-vault', name: 'Cámara Acorazada', type: 'Slabs Graded', owned: totalGraded, total: totalGraded, percent: 100, isVault: true, isLocked: currentStatus === 'INDIE' }); projectsList.push({ id: 'sealed-collection', name: 'Almacén Sellado', type: 'Sealed Products', owned: totalSealed, total: totalSealed, percent: 100, isSealed: true, isLocked: currentStatus === 'INDIE' }); albumsData?.forEach((album: any) => { const totalInAlbum = album.album_cards.length; let ownedInAlbum = 0; album.album_cards.forEach((c: any) => { const variant = c.card_variants; if (variant && variant.cards) { const cardInfo = Array.isArray(variant.cards) ? variant.cards[0] : variant.cards; if (cardInfo) { const invItem = inventoryMap.get(variant.id); const globalTotal = (invItem?.quantity_normal || 0) + (invItem?.quantity_holo || 0) + (invItem?.quantity_reverse || 0); if (globalTotal > 0) { ownedInAlbum++; totalCardsOwned++; totalScore += getCardScore({ set_id: cardInfo.set_id, card_number: cardInfo.collector_number, rarity: cardInfo.rarity, name: cardInfo.name }) } else { if (missingMap.has(variant.id)) { const existing = missingMap.get(variant.id); if (!existing.albumIds.includes(album.id)) existing.albumIds.push(album.id) } else { missingMap.set(variant.id, { id: variant.id, name: cardInfo.name, image: variant.image_url, number: cardInfo.collector_number, setId: cardInfo.set_id, setName: setsMap.get(cardInfo.set_id) || cardInfo.set_id, rarity: cardInfo.rarity, albumIds: [album.id] }) } } } } }); if (totalInAlbum > 0) { const percent = Math.round((ownedInAlbum / totalInAlbum) * 100); projectsList.push({ id: album.id, name: album.name, type: album.is_master_set ? 'Oficial' : 'Personal', owned: ownedInAlbum, total: totalInAlbum, percent: percent, isLocked: false, setId: album.set_id }); totalSlotsTracked += totalInAlbum; totalOwnedInTracked += ownedInAlbum } }); const finalScore = totalScore + gradedScoreBoost + sealedScoreBoost; setCollectorScore(finalScore); setStats({ totalCards: totalCardsOwned, totalAlbums: albumsData?.length || 0, globalCompletion: totalSlotsTracked > 0 ? Math.round((totalOwnedInTracked / totalSlotsTracked) * 100) : 0, projectsProgress: projectsList, gradedCount: totalGraded }); setMissingCards(Array.from(missingMap.values())); let rankIndex = 0; for (let i = 0; i < RANKS.length; i++) { if (finalScore >= RANKS[i].min) rankIndex = i } setCurrentRank(RANKS[rankIndex]); setNextRank(RANKS[rankIndex + 1] || null) } catch (error) { toast.error('Error al cargar perfil') } finally { if(mounted) setLoading(false) }
-  }
+  const fetchProfileData = async (mounted: boolean = true) => { /* ... misma lógica de siempre ... */ try { const { data: { session } } = await supabase.auth.getSession(); if (!session || !mounted) return; setUser(session.user); const { data: profiles } = await supabase.from('profiles').select(`*, gyms (name, logo_url)`).eq('id', session.user.id).limit(1); const profile = profiles?.[0]; setDbProfile(profile); let currentStatus: 'INDIE' | 'GYM' | 'PRO' = 'INDIE'; if (profile) { if (profile.starter_gen && profile.starter_type) { setStarterData({ gen: profile.starter_gen, type: profile.starter_type }) } else { setShowStarterSelector(true) } if (profile.subscription_status === 'GYM') { currentStatus = 'GYM'; if (profile.gyms) { const g: any = profile.gyms; setGymData({ name: g.name, logo_url: g.logo_url }) } if (profile.gym_id) { const { data: offers } = await supabase.from('gym_offers').select('*').eq('gym_id', profile.gym_id).eq('is_active', true); if (offers) setGymOffers(offers) } } else if (profile.subscription_status === 'PRO') { currentStatus = 'PRO'; } } else { setShowStarterSelector(true) } setSubscriptionType(currentStatus); const { data: setsData } = await supabase.from('sets').select('id, name'); const setsMap = new Map<string, string>(); setsData?.forEach((s: any) => setsMap.set(s.id, s.name)); const { data: inventoryData } = await supabase.from('inventory').select('card_id, quantity_normal, quantity_holo, quantity_reverse').eq('user_id', session.user.id); const inventoryMap = new Map(); inventoryData?.forEach((item: any) => inventoryMap.set(item.card_id, item)); const { count: gradedCount } = await supabase.from('graded_cards').select('id', { count: 'exact' }).eq('user_id', session.user.id); const { count: sealedCount } = await supabase.from('sealed_products').select('id', { count: 'exact' }).eq('user_id', session.user.id); const totalGraded = gradedCount || 0; const totalSealed = sealedCount || 0; const gradedScoreBoost = totalGraded * 50; const sealedScoreBoost = totalSealed * 20; const { data: albumsData } = await supabase.from('albums').select(`id, name, is_master_set, set_id, created_at, album_cards (acquired, card_variants (id, image_url, cards (name, set_id, collector_number, rarity)))`).eq('user_id', session.user.id).order('created_at', { ascending: false }); let totalCardsOwned = 0; let totalSlotsTracked = 0; let totalOwnedInTracked = 0; let totalScore = 0; const projectsList: any[] = []; const missingMap = new Map(); projectsList.push({ id: 'graded-vault', name: 'Cámara Acorazada', type: 'Slabs Graded', owned: totalGraded, total: totalGraded, percent: 100, isVault: true, isLocked: currentStatus === 'INDIE' }); projectsList.push({ id: 'sealed-collection', name: 'Almacén Sellado', type: 'Sealed Products', owned: totalSealed, total: totalSealed, percent: 100, isSealed: true, isLocked: currentStatus === 'INDIE' }); albumsData?.forEach((album: any) => { const totalInAlbum = album.album_cards.length; let ownedInAlbum = 0; album.album_cards.forEach((c: any) => { const variant = c.card_variants; if (variant && variant.cards) { const cardInfo = Array.isArray(variant.cards) ? variant.cards[0] : variant.cards; if (cardInfo) { const invItem = inventoryMap.get(variant.id); const globalTotal = (invItem?.quantity_normal || 0) + (invItem?.quantity_holo || 0) + (invItem?.quantity_reverse || 0); if (globalTotal > 0) { ownedInAlbum++; totalCardsOwned++; totalScore += getCardScore({ set_id: cardInfo.set_id, card_number: cardInfo.collector_number, rarity: cardInfo.rarity, name: cardInfo.name }) } else { if (missingMap.has(variant.id)) { const existing = missingMap.get(variant.id); if (!existing.albumIds.includes(album.id)) existing.albumIds.push(album.id) } else { missingMap.set(variant.id, { id: variant.id, name: cardInfo.name, image: variant.image_url, number: cardInfo.collector_number, setId: cardInfo.set_id, setName: setsMap.get(cardInfo.set_id) || cardInfo.set_id, rarity: cardInfo.rarity, albumIds: [album.id] }) } } } } }); if (totalInAlbum > 0) { const percent = Math.round((ownedInAlbum / totalInAlbum) * 100); projectsList.push({ id: album.id, name: album.name, type: album.is_master_set ? 'Oficial' : 'Personal', owned: ownedInAlbum, total: totalInAlbum, percent: percent, isLocked: false, setId: album.set_id }); totalSlotsTracked += totalInAlbum; totalOwnedInTracked += ownedInAlbum } }); const finalScore = totalScore + gradedScoreBoost + sealedScoreBoost; setCollectorScore(finalScore); setStats({ totalCards: totalCardsOwned, totalAlbums: albumsData?.length || 0, globalCompletion: totalSlotsTracked > 0 ? Math.round((totalOwnedInTracked / totalSlotsTracked) * 100) : 0, projectsProgress: projectsList, gradedCount: totalGraded }); setMissingCards(Array.from(missingMap.values())); let rankIndex = 0; for (let i = 0; i < RANKS.length; i++) { if (finalScore >= RANKS[i].min) rankIndex = i } setCurrentRank(RANKS[rankIndex]); setNextRank(RANKS[rankIndex + 1] || null) } catch (error) { toast.error('Error al cargar perfil') } finally { if(mounted) setLoading(false) } }
 
-  const handleSubscribe = async () => { /* ... (Pago igual) ... */ setIsSubscribing(true); try { const { data: { session } } = await supabase.auth.getSession(); const token = session?.access_token; if (!token) throw new Error('No se encontró sesión activa.'); const response = await fetch('/api/checkout', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` } }); if (!response.ok) { const err = await response.json(); throw new Error(err.error || await response.text()); } const data = await response.json(); if (data.url) window.location.href = data.url; } catch (error: any) { toast.error('Error de pago', { description: error.message }); setIsSubscribing(false); } }
+  const handleSubscribe = async () => { /* ... pago ... */ setIsSubscribing(true); try { const { data: { session } } = await supabase.auth.getSession(); const token = session?.access_token; if (!token) throw new Error('No se encontró sesión activa.'); const response = await fetch('/api/checkout', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` } }); if (!response.ok) { const err = await response.json(); throw new Error(err.error || await response.text()); } const data = await response.json(); if (data.url) window.location.href = data.url; } catch (error: any) { toast.error('Error de pago', { description: error.message }); setIsSubscribing(false); } }
   const handleRedeemCode = async (e: React.FormEvent) => { /* ... */ }
   const handleCopyOffer = (code: string) => { navigator.clipboard.writeText(code); toast.success('¡Copiado!') }
   const getBuddyImage = () => { if (!starterData) return null; let genKey = starterData.gen; if (!genKey.startsWith('gen')) genKey = `gen${genKey}`; const genPaths = STARTER_PATHS[genKey]; if (!genPaths) return null; const typePaths = genPaths[starterData.type]; if (!typePaths) return null; return typePaths[currentRank.id] || typePaths[1] || Object.values(typePaths)[0] || null }
@@ -155,7 +156,6 @@ function ProfileContent() {
 
   const PosterTemplate = ({ cards, pageIndex, totalPages }: any) => (
     <div id="visible-poster" className="relative w-[400px] h-[711px] bg-[#0a0a0a] flex flex-col shadow-2xl border border-white/10 overflow-hidden isolate mx-auto transition-all duration-500">
-        {/* FONDO BLANCO PARA FLASH */}
         <div className={`absolute inset-0 bg-white z-[100] pointer-events-none transition-opacity duration-150 ease-out ${flashActive ? 'opacity-100' : 'opacity-0'}`} />
         <div className="absolute inset-0 bg-slate-950 -z-30" />
         <div className="absolute inset-0 opacity-20 -z-20" style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, rgba(255,255,255,0.15) 1px, transparent 0)', backgroundSize: '20px 20px' }} />
@@ -166,11 +166,10 @@ function ProfileContent() {
             <div className="grid grid-cols-3 gap-3 w-full h-full max-h-full">
                 {cards.map((card:any) => (
                     <div key={card.id} className="relative aspect-[0.716] rounded-lg overflow-hidden shadow-lg border border-white/10 group bg-slate-900">
-                        {/* IMAGEN SIMPLE - Safari la muestra bien si no usamos canvas */}
+                        {/* IMAGEN SIMPLE - SIN PROXIES, SIN BASE64, SIN CROSSORIGIN */}
                         <img 
                             src={card.image} 
                             className="w-full h-full object-cover" 
-                            crossOrigin="anonymous"
                         />
                     </div>
                 ))}
@@ -194,16 +193,14 @@ function ProfileContent() {
      if (isScreenshotMode) {
          return (
              <div className="fixed inset-0 z-[300] bg-black flex items-center justify-center" onClick={() => setIsScreenshotMode(false)}>
-                 {/* EL FLASH INICIAL */}
                  <div className={`absolute inset-0 bg-white z-[310] pointer-events-none transition-opacity duration-300 ${flashActive ? 'opacity-100' : 'opacity-0'}`} />
                  
-                 {/* PÓSTER CENTRADO PERFECTO */}
                  <div className="scale-95 sm:scale-100">
                     <PosterTemplate cards={currentCards} pageIndex={posterPage} totalPages={totalPages} />
                  </div>
                  
-                 {/* INSTRUCCIÓN DE SALIDA */}
-                 <div className="absolute bottom-10 left-0 right-0 text-center opacity-30 text-[10px] text-white animate-pulse">
+                 {/* INSTRUCCIÓN DE SALIDA CON RETRASO DE 4 SEGUNDOS */}
+                 <div className={`absolute bottom-10 left-0 right-0 text-center opacity-30 text-[10px] text-white transition-opacity duration-1000 ${showExitHint ? 'opacity-30' : 'opacity-0'}`}>
                      Toca en cualquier lugar para salir
                  </div>
              </div>
@@ -227,11 +224,8 @@ function ProfileContent() {
                 )}
                 <div className="flex gap-4">
                     <button onClick={() => setIsPosterMode(false)} className="flex-1 py-4 rounded-xl font-bold uppercase tracking-widest text-xs bg-white/10 text-white hover:bg-white/20 transition-all">Volver</button>
-                    
-                    {/* BOTÓN INTELIGENTE: MÓVIL = CAPTURA, PC = DESCARGA */}
                     <button 
                         onClick={() => {
-                            // Detección simple de móvil por ancho de pantalla
                             if (window.innerWidth < 768) {
                                 handleScreenshotMode();
                             } else {
@@ -242,7 +236,6 @@ function ProfileContent() {
                         className={`flex-[2] py-4 rounded-xl font-black uppercase tracking-widest text-xs flex items-center justify-center gap-2 transition-all shadow-lg ${downloadSuccess ? 'bg-emerald-500 text-white' : 'bg-violet-600 text-white hover:bg-violet-500'}`}
                     >
                         {isDownloading ? <Loader2 className="animate-spin" /> : (
-                            // Texto dinámico según dispositivo
                             <span className="flex items-center gap-2">
                                 <span className="md:hidden"><Camera size={16} /> MODO CAPTURA</span>
                                 <span className="hidden md:inline">DESCARGAR PÓSTER</span>
@@ -326,11 +319,9 @@ function ProfileContent() {
                             </div>
                         </div>
                         
-                        {/* --- BOTÓN DE BORRAR ÁLBUM SUTIL (VISIBLE EN MÓVIL, HOVER EN PC) --- */}
                         {!album.isVault && !album.isSealed && !isLocked && (
                             <button 
                                 onClick={(e) => { e.stopPropagation(); setAlbumToDelete(album.id); }}
-                                // Opacidad: 100 en móvil (por defecto), 0 en PC (md) hasta hover
                                 className="absolute -top-2 -right-2 p-1.5 bg-slate-900 border border-white/10 rounded-full text-slate-500 hover:text-red-500 hover:border-red-500 transition-all z-20 opacity-100 md:opacity-0 md:group-hover:opacity-100 active:scale-95 shadow-xl"
                                 title="Eliminar álbum"
                             >

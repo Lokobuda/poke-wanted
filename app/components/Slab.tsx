@@ -26,9 +26,14 @@ export default function Slab({ slab, onClick, onDelete, className = '', showDele
     else if (g.includes('CGC')) companyColor = "#0088ff"
     else if (g.includes('TAG')) companyColor = "#00fff2"
 
-    const companyGlow = `rgba(${parseInt(companyColor.slice(1,3),16)}, ${parseInt(companyColor.slice(3,5),16)}, ${parseInt(companyColor.slice(5,7),16)}, 0.6)`
+    // Convertir Hex a RGB manualmente para evitar errores de parseInt complejos
+    // Esto es un "hack" seguro: si es PSA (#ff2a2a), el glow es rojo.
+    let glowColor = "rgba(148, 163, 184, 0.6)" // Default slate
+    if (g.includes('PSA')) glowColor = "rgba(255, 42, 42, 0.6)"
+    else if (g.includes('BGS') || g.includes('BECKETT')) glowColor = "rgba(251, 191, 36, 0.6)"
+    else if (g.includes('CGC')) glowColor = "rgba(0, 136, 255, 0.6)"
+    else if (g.includes('TAG')) glowColor = "rgba(0, 255, 242, 0.6)"
 
-    // --- ORO (AURA) ---
     const goldColor = "#ffd700" 
     const goldGlowTight = "rgba(255, 215, 0, 0.8)" 
     const goldGlowSoft = "rgba(255, 215, 0, 0.4)"
@@ -36,22 +41,19 @@ export default function Slab({ slab, onClick, onDelete, className = '', showDele
     const imgUrl = s.image_url || s.custom_image_url
     const pokeName = s.pokemon_name || s.name || 'UNKNOWN'
 
-    // --- ESTILOS COMPLEJOS EXTRAÍDOS (PARA EVITAR ERROR DE SINTAXIS) ---
-    const gradeBoxStyle = {
-        background: isTen 
-            ? `linear-gradient(135deg, ${goldColor}20, rgba(0,0,0,0.8))` 
-            : 'rgba(0,0,0,0.4)',
-        boxShadow: isTen 
-            ? `inset 0 0 15px ${goldGlowTight}` 
-            : `0 0 10px -2px ${companyGlow}`
-    }
+    // --- ESTILOS BLINDADOS (Concatenación simple) ---
+    const gradeBoxBackground = isTen 
+        ? 'linear-gradient(135deg, ' + goldColor + '20, rgba(0,0,0,0.8))' 
+        : 'rgba(0,0,0,0.4)';
+        
+    // AQUI ESTABA EL ERROR: Usamos la variable glowColor simple que acabamos de definir
+    const gradeBoxShadow = isTen 
+        ? 'inset 0 0 15px ' + goldGlowTight 
+        : '0 0 10px -2px ' + glowColor; 
 
-    const gradeTextStyle = {
-        color: isTen ? goldColor : 'white',
-        textShadow: isTen 
-            ? `0 2px 10px ${goldGlowTight}` 
-            : `0 0 10px ${companyColor}`
-    }
+    const gradeTextShadow = isTen 
+        ? '0 2px 10px ' + goldGlowTight 
+        : '0 0 10px ' + companyColor;
 
     return (
         <div 
@@ -60,8 +62,8 @@ export default function Slab({ slab, onClick, onDelete, className = '', showDele
             style={{
                 background: '#050505',
                 boxShadow: isTen 
-                    ? `0 0 15px -5px ${goldGlowTight}, 0 0 40px -10px ${goldGlowSoft}, 0 0 10px -5px ${companyColor}` 
-                    : `0 20px 40px -10px rgba(0,0,0,0.9)`
+                    ? '0 0 15px -5px ' + goldGlowTight + ', 0 0 40px -10px ' + goldGlowSoft + ', 0 0 10px -5px ' + companyColor
+                    : '0 20px 40px -10px rgba(0,0,0,0.9)'
             }}
         >
             {/* FONDO ANIMADO */}
@@ -79,33 +81,32 @@ export default function Slab({ slab, onClick, onDelete, className = '', showDele
                 
                 {/* --- EFECTO BURBUJAS / FOIL --- */}
                 {isTen && (
-                    <div className="absolute inset-0 z-20 pointer-events-none opacity-50 mix-blend-overlay"
+                    <div className="absolute inset-0 z-20 pointer-events-none opacity-60 mix-blend-overlay"
                          style={{ 
-                             backgroundImage: `radial-gradient(#ffffff 1.5px, transparent 1.5px), radial-gradient(#ffffff 1px, transparent 1px)`,
-                             backgroundSize: '24px 24px, 16px 16px',
-                             backgroundPosition: '0 0, 12px 12px',
-                             maskImage: 'linear-gradient(to bottom, black 20%, transparent 80%)'
+                             backgroundImage: 'radial-gradient(circle at 50% 50%, white 2px, transparent 2.5px)',
+                             backgroundSize: '24px 24px',
+                             maskImage: 'linear-gradient(to bottom, black 10%, transparent 90%)'
                          }} 
                     />
                 )}
 
                 <div className="absolute inset-0 border rounded-[18px] pointer-events-none z-50 transition-colors duration-500" 
-                     style={{ borderColor: isTen ? `${goldColor}60` : 'rgba(255,255,255,0.08)' }}></div>
+                     style={{ borderColor: isTen ? goldColor + '60' : 'rgba(255,255,255,0.08)' }}></div>
                 
                 {/* --- HEADER --- */}
-                <div className="h-[72px] w-full relative z-30 bg-gradient-to-b from-[#151515] to-[#0a0a0a] border-b border-white/5 flex flex-row items-center justify-between px-3 py-2 gap-2">
+                <div className="h-[74px] w-full relative z-30 bg-gradient-to-b from-[#151515] to-[#0a0a0a] border-b border-white/5 flex flex-row items-center justify-between px-3 py-2 gap-2">
                     
                     {/* IZQUIERDA: Textos */}
-                    <div className="flex flex-col justify-center items-start flex-1 min-w-0 h-full">
-                        <span className="text-[10px] font-black uppercase tracking-widest leading-none mb-1" style={{ color: companyColor }}>
+                    <div className="flex flex-col justify-center items-start flex-1 min-w-0 h-full gap-0.5">
+                        <span className="text-[9px] font-black uppercase tracking-widest leading-none" style={{ color: companyColor }}>
                             {graderRaw}
                         </span>
                         
-                        <span className="text-[11px] font-bold text-slate-200 uppercase tracking-tight leading-tight truncate w-full">
+                        <span className="text-[11px] md:text-[12px] font-bold text-slate-200 uppercase tracking-tight leading-none truncate w-full pt-0.5">
                             {pokeName}
                         </span>
                         
-                        <div className="flex items-center gap-1.5 mt-0.5 opacity-60 w-full overflow-hidden">
+                        <div className="flex items-center gap-1.5 opacity-60 w-full overflow-hidden">
                              <span className="text-[8px] font-bold text-slate-400 tracking-wider uppercase truncate shrink-0">{s.set_name || 'UNK'}</span>
                              {certNumber && (
                                 <span className="text-[7px] font-mono text-slate-500 truncate border-l border-white/20 pl-1.5">
@@ -115,8 +116,8 @@ export default function Slab({ slab, onClick, onDelete, className = '', showDele
                         </div>
                     </div>
 
-                    {/* DERECHA: NOTA (USANDO EL ESTILO EXTRAÍDO) */}
-                    <div className="relative flex items-center justify-center shrink-0 w-10 h-10">
+                    {/* DERECHA: NOTA */}
+                    <div className="relative flex items-center justify-center shrink-0 w-10 h-10 md:w-11 md:h-11">
                         {isTen && (
                             <div className="absolute -top-3 left-1/2 -translate-x-1/2 text-yellow-400 drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] animate-bounce-subtle z-20">
                                 <Crown size={12} fill="#ffd700" strokeWidth={0} />
@@ -124,9 +125,18 @@ export default function Slab({ slab, onClick, onDelete, className = '', showDele
                         )}
                         <div 
                             className={`flex items-center justify-center w-full h-full rounded-lg border backdrop-blur-md transition-all duration-500 ${isTen ? 'border-yellow-500/40' : 'border-white/10'}`}
-                            style={gradeBoxStyle}
+                            style={{ 
+                                background: gradeBoxBackground, 
+                                boxShadow: gradeBoxShadow 
+                            }}
                         >
-                            <span className="text-[22px] font-black leading-none drop-shadow-lg" style={gradeTextStyle}>
+                            <span 
+                                className="text-[20px] md:text-[22px] font-black leading-none drop-shadow-lg" 
+                                style={{ 
+                                    color: isTen ? goldColor : 'white', 
+                                    textShadow: gradeTextShadow 
+                                }}
+                            >
                                 {gradeVal}
                             </span>
                         </div>
@@ -136,7 +146,7 @@ export default function Slab({ slab, onClick, onDelete, className = '', showDele
                 {/* --- IMAGEN --- */}
                 <div className="flex-1 relative w-full bg-[#030303] flex items-center justify-center p-2 overflow-hidden shadow-[inset_0_10px_30px_rgba(0,0,0,1)]">
                     <div className={`absolute inset-0 transition-opacity duration-700 ${isTen ? 'opacity-40 group-hover:opacity-60' : 'opacity-20 group-hover:opacity-40'}`}
-                        style={{ background: `radial-gradient(circle at center, ${companyColor}, transparent 70%)`, filter: 'blur(25px)' }}
+                        style={{ background: 'radial-gradient(circle at center, ' + companyColor + ', transparent 70%)', filter: 'blur(25px)' }}
                     />
                     {imgUrl ? (
                         <div className="relative w-full h-full flex items-center justify-center z-20">
@@ -153,9 +163,9 @@ export default function Slab({ slab, onClick, onDelete, className = '', showDele
                         e.stopPropagation();
                         onDelete(e);
                     }}
-                    className="absolute -top-2 -right-2 z-[60] w-8 h-8 flex items-center justify-center rounded-full bg-slate-900 border border-white/10 text-slate-600 shadow-xl opacity-100 hover:text-white hover:bg-red-500 hover:border-red-500 active:bg-red-500 active:text-white active:scale-95 transition-all"
+                    className="absolute -top-1 -right-1 z-[60] w-6 h-6 flex items-center justify-center rounded-full bg-slate-900/80 border border-white/10 text-slate-500 shadow-xl backdrop-blur-md transition-all hover:bg-red-500 hover:text-white hover:border-red-400 active:scale-90 active:bg-red-500 active:text-white"
                 >
-                    <Trash2 size={14} />
+                    <Trash2 size={10} />
                 </button>
             )}
 
