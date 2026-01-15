@@ -1,14 +1,16 @@
 'use client'
 
-import { Box, Crown } from 'lucide-react'
+import { Box, Crown, Trash2 } from 'lucide-react'
 
 interface SlabProps {
   slab?: any
   onClick?: () => void
+  onDelete?: (e: any) => void // Nueva prop para manejar el borrado
   className?: string
+  showDelete?: boolean
 }
 
-export default function Slab({ slab, onClick, className = '' }: SlabProps) {
+export default function Slab({ slab, onClick, onDelete, className = '', showDelete = false }: SlabProps) {
     const s = slab || {}
     const graderRaw = s.grader || s.grading_company || 'RAW'
     const g = String(graderRaw).toUpperCase()
@@ -30,6 +32,9 @@ export default function Slab({ slab, onClick, className = '' }: SlabProps) {
     const goldColor = "#ffd700" 
     const goldGlowTight = "rgba(255, 215, 0, 0.8)" 
     const goldGlowSoft = "rgba(255, 215, 0, 0.4)"
+
+    // --- EFECTO BURBUJAS / FOIL (RECUPERADO) ---
+    const sparkleBg = `radial-gradient(white, rgba(255,255,255,0.2) 2px, transparent 3px)`
 
     const noiseBg = `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.15'/%3E%3C/svg%3E")`
     const imgUrl = s.image_url || s.custom_image_url
@@ -57,43 +62,57 @@ export default function Slab({ slab, onClick, className = '' }: SlabProps) {
             </div>
 
             {/* MARCO SÓLIDO CENTRAL */}
-            <div className="absolute inset-[2px] bg-[#0a0a0a] rounded-[18px] z-10 flex flex-col overflow-hidden">
+            <div className="absolute inset-[2px] bg-[#0a0a0a] rounded-[18px] z-10 flex flex-col overflow-hidden isolate">
+                
+                {/* --- EFECTO BURBUJAS (SOLO PARA 10) --- */}
+                {isTen && (
+                    <div className="absolute inset-0 z-20 pointer-events-none opacity-30 mix-blend-overlay"
+                         style={{ 
+                             backgroundImage: sparkleBg, 
+                             backgroundSize: '20px 20px',
+                             maskImage: 'linear-gradient(to bottom, black 40%, transparent 100%)'
+                         }} 
+                    />
+                )}
+
                 <div className="absolute inset-0 border rounded-[18px] pointer-events-none z-50 transition-colors duration-500" 
                      style={{ borderColor: isTen ? `${goldColor}60` : 'rgba(255,255,255,0.08)' }}></div>
                 
-                {/* --- HEADER (ETIQUETA) REESTRUCTURADO --- */}
-                <div className="h-[65px] md:h-[75px] w-full relative z-20 bg-gradient-to-b from-[#151515] to-[#0a0a0a] border-b border-white/5 flex items-center justify-between px-2.5 py-2">
+                {/* --- HEADER (ETIQUETA) --- */}
+                <div className="h-[65px] md:h-[75px] w-full relative z-20 bg-gradient-to-b from-[#151515] to-[#0a0a0a] border-b border-white/5 flex items-center justify-between px-3 py-2">
                     <div className="absolute inset-0 opacity-20 mix-blend-overlay" style={{ backgroundImage: noiseBg }}></div>
                     
-                    {/* IZQUIERDA: Info + Empresa (Apilados para ahorrar espacio) */}
+                    {/* IZQUIERDA: Info + Empresa */}
                     <div className="flex flex-col items-start justify-center flex-1 min-w-0 pr-2 z-10">
-                        {/* EMPRESA (Ahora arriba pequeño) */}
                         <span className="text-[10px] font-black uppercase tracking-widest leading-none mb-1" style={{ color: companyColor }}>
                             {graderRaw}
                         </span>
                         
-                        {/* NOMBRE POKEMON */}
-                        <span className="text-[9px] md:text-[11px] font-bold text-slate-200 uppercase tracking-tight leading-none truncate w-full">
+                        <span className="text-[10px] md:text-[12px] font-bold text-slate-200 uppercase tracking-tight leading-none truncate w-full">
                             {pokeName}
                         </span>
                         
-                        {/* SET / CERT */}
-                        <div className="flex items-center gap-1.5 mt-1 opacity-60">
-                             <span className="text-[6px] md:text-[7px] font-bold text-slate-400 tracking-wider uppercase truncate max-w-[60px]">{s.set_name || 'UNK'}</span>
-                             {certNumber && <span className="text-[5px] font-mono text-slate-500">#{certNumber}</span>}
+                        {/* SERIE ARREGLADO */}
+                        <div className="flex items-center gap-1.5 mt-1.5 opacity-60 w-full overflow-hidden">
+                             <span className="text-[7px] md:text-[8px] font-bold text-slate-400 tracking-wider uppercase truncate shrink-0">{s.set_name || 'UNK'}</span>
+                             {certNumber && (
+                                <span className="text-[6px] md:text-[7px] font-mono text-slate-500 truncate border-l border-white/20 pl-1.5">
+                                    #{certNumber}
+                                </span>
+                             )}
                         </div>
                     </div>
 
-                    {/* DERECHA: NOTA (Bloque Fijo) */}
+                    {/* DERECHA: NOTA */}
                     <div className="relative flex items-center justify-center z-10 shrink-0">
                         {isTen && (
-                            <div className="absolute -top-2.5 left-1/2 -translate-x-1/2 text-yellow-400 drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] animate-bounce-subtle z-20">
-                                <Crown size={9} fill="#ffd700" strokeWidth={0} />
+                            <div className="absolute -top-3 left-1/2 -translate-x-1/2 text-yellow-400 drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] animate-bounce-subtle z-20">
+                                <Crown size={10} fill="#ffd700" strokeWidth={0} />
                             </div>
                         )}
-                        <div className={`flex items-center justify-center w-9 h-8 md:w-12 md:h-10 rounded-lg border backdrop-blur-md transition-all duration-500 ${isTen ? 'border-yellow-500/40' : 'border-white/10'}`}
+                        <div className={`flex items-center justify-center w-10 h-9 md:w-12 md:h-10 rounded-lg border backdrop-blur-md transition-all duration-500 ${isTen ? 'border-yellow-500/40' : 'border-white/10'}`}
                              style={{ background: isTen ? `linear-gradient(135deg, ${goldColor}20, rgba(0,0,0,0.8))` : 'rgba(0,0,0,0.4)', boxShadow: isTen ? `inset 0 0 15px ${goldGlowTight}` : `0 0 10px -2px ${companyGlow}` }}>
-                            <span className="text-[18px] md:text-[24px] font-black leading-none drop-shadow-lg" 
+                            <span className="text-[20px] md:text-[24px] font-black leading-none drop-shadow-lg" 
                                 style={{ color: isTen ? goldColor : 'white', textShadow: isTen ? `0 2px 10px ${goldGlowTight}` : `0 0 10px ${companyColor}` }}>
                                 {gradeVal}
                             </span>
@@ -111,18 +130,21 @@ export default function Slab({ slab, onClick, className = '' }: SlabProps) {
                             <img src={imgUrl} className="h-full w-auto object-contain transition-transform duration-500 group-hover:scale-105" alt={pokeName} />
                         </div>
                     ) : (<div className="opacity-10 text-white z-20"><Box size={24} /></div>)}
-                    
-                    {/* BRILLO SUPERIOR */}
-                    <div className="absolute inset-0 z-30 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none mix-blend-color-dodge"
-                            style={{
-                                background: isTen 
-                                    ? 'linear-gradient(115deg, transparent 20%, rgba(255,215,0,0.3) 30%, transparent 45%, transparent 55%, rgba(255,255,255,0.4) 65%, transparent 80%)' 
-                                    : 'linear-gradient(115deg, transparent 20%, rgba(255,255,255,0.3) 30%, transparent 40%, transparent 60%, rgba(255,255,255,0.1) 70%, transparent 80%)', 
-                                backgroundSize: '200% 200%',
-                            }}
-                    />
                 </div>
             </div>
+
+            {/* --- BOTÓN PAPELERA SUTIL (FUERA DEL FLUJO INTERNO) --- */}
+            {showDelete && onDelete && (
+                <button
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        onDelete(e);
+                    }}
+                    className="absolute -top-2 -right-2 z-[60] w-8 h-8 flex items-center justify-center rounded-full bg-slate-900 border border-white/10 text-slate-500 shadow-xl opacity-80 hover:opacity-100 hover:text-white hover:bg-red-500/80 hover:border-red-500 transition-all active:scale-95"
+                >
+                    <Trash2 size={14} />
+                </button>
+            )}
 
             <style jsx>{`
                 @keyframes spin-slow { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
