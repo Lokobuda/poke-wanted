@@ -35,7 +35,7 @@ export default function Slab({ slab, onClick, onDelete, className = '', showDele
     const imgUrl = s.image_url || s.custom_image_url
     const pokeName = s.pokemon_name || s.name || 'UNKNOWN'
 
-    // --- ESTILOS DE LA NOTA ---
+    // --- ESTILOS ---
     const gradeBoxBackground = isTen 
         ? 'linear-gradient(135deg, ' + goldColor + '20, rgba(0,0,0,0.8))' 
         : 'rgba(0,0,0,0.4)';
@@ -59,7 +59,7 @@ export default function Slab({ slab, onClick, onDelete, className = '', showDele
                     : '0 20px 40px -10px rgba(0,0,0,0.9)'
             }}
         >
-            {/* FONDO ANIMADO TRASERO (AURA) */}
+            {/* FONDO ANIMADO TRASERO */}
             <div className={`absolute inset-0 rounded-[20px] overflow-hidden transition-opacity duration-500 z-0 ${isTen ? 'opacity-50 group-hover:opacity-70' : 'opacity-30 group-hover:opacity-60'}`}>
                 <div className="absolute top-[-50%] left-[-50%] w-[200%] h-[200%] animate-spin-slow"
                      style={{
@@ -69,23 +69,26 @@ export default function Slab({ slab, onClick, onDelete, className = '', showDele
                 />
             </div>
 
-            {/* MARCO CENTRAL */}
+            {/* MARCO CENTRAL Y CONTENIDO */}
             <div className="absolute inset-[2px] bg-[#0a0a0a] rounded-[18px] z-10 flex flex-col overflow-hidden isolate">
                 
-                {/* --- EFECTO BURBUJAS DE CHAMPAGNE (ANIMADO) --- */}
+                {/* --- BURBUJAS CHAMPAGNE (GOLDEN PARTICLES) --- */}
+                {/* Ahora están en el contenedor principal, cubriendo TODO (Header + Imagen) */}
                 {isTen && (
-                    <div className="absolute inset-0 z-20 pointer-events-none overflow-hidden rounded-[18px]">
-                        {/* Generamos varias burbujas con estilos inline para variar su movimiento */}
-                        {[...Array(6)].map((_, i) => (
+                    <div className="absolute inset-0 z-40 pointer-events-none overflow-hidden rounded-[18px]">
+                        {[...Array(12)].map((_, i) => (
                             <div 
                                 key={i}
-                                className="absolute bottom-0 rounded-full bg-white opacity-0 animate-float-up"
+                                className="absolute bottom-[-10px] rounded-full bg-[#ffd700] opacity-0 animate-champagne"
                                 style={{
                                     left: `${Math.random() * 100}%`,
-                                    width: `${Math.random() * 4 + 2}px`,
-                                    height: `${Math.random() * 4 + 2}px`,
-                                    animationDelay: `${Math.random() * 2}s`,
-                                    animationDuration: `${Math.random() * 3 + 2}s`
+                                    // Tamaño fino y variado (entre 1px y 3px)
+                                    width: `${Math.random() * 2 + 1}px`, 
+                                    height: `${Math.random() * 2 + 1}px`,
+                                    // Retraso aleatorio para flujo continuo
+                                    animationDelay: `${Math.random() * 4}s`,
+                                    // Duración variada para distintas velocidades
+                                    animationDuration: `${Math.random() * 3 + 2.5}s` 
                                 }}
                             />
                         ))}
@@ -97,17 +100,13 @@ export default function Slab({ slab, onClick, onDelete, className = '', showDele
                 
                 {/* --- HEADER --- */}
                 <div className="h-[74px] w-full relative z-30 bg-gradient-to-b from-[#151515] to-[#0a0a0a] border-b border-white/5 flex flex-row items-center justify-between px-2.5 py-2 gap-1.5">
-                    
-                    {/* IZQUIERDA */}
-                    <div className="flex flex-col justify-center items-start flex-1 min-w-0 h-full">
+                    <div className="flex flex-col justify-center items-start flex-1 min-w-0 h-full gap-0.5">
                         <span className="text-[9px] font-black uppercase tracking-widest leading-none mb-0.5" style={{ color: companyColor }}>
                             {graderRaw}
                         </span>
-                        
                         <span className="text-[10px] md:text-[12px] font-bold text-slate-200 uppercase tracking-tight leading-tight truncate w-full">
                             {pokeName}
                         </span>
-                        
                         <div className="flex items-center gap-1 opacity-60 w-full overflow-hidden mt-0.5">
                              <span className="text-[7px] md:text-[8px] font-bold text-slate-400 tracking-wider uppercase truncate shrink-0">{s.set_name || 'UNK'}</span>
                              {certNumber && (
@@ -118,7 +117,6 @@ export default function Slab({ slab, onClick, onDelete, className = '', showDele
                         </div>
                     </div>
 
-                    {/* DERECHA: NOTA */}
                     <div className="relative flex items-center justify-center shrink-0 w-10 h-10">
                         {isTen && (
                             <div className="absolute -top-2.5 left-1/2 -translate-x-1/2 text-yellow-400 drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] animate-bounce-subtle z-20">
@@ -149,7 +147,7 @@ export default function Slab({ slab, onClick, onDelete, className = '', showDele
                 </div>
             </div>
 
-            {/* --- BOTÓN PAPELERA (Ajustado) --- */}
+            {/* --- BOTÓN PAPELERA (CORREGIDO MÓVIL) --- */}
             {showDelete && onDelete && (
                 <button
                     onClick={(e) => { e.stopPropagation(); onDelete(e); }}
@@ -163,16 +161,16 @@ export default function Slab({ slab, onClick, onDelete, className = '', showDele
                 @keyframes spin-slow { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
                 @keyframes bounce-subtle { 0%, 100% { transform: translate(-50%, -8%); } 50% { transform: translate(-50%, 8%); } }
                 
-                @keyframes float-up {
-                    0% { transform: translateY(100%) scale(0.5); opacity: 0; }
-                    20% { opacity: 0.8; }
-                    80% { opacity: 0.4; }
-                    100% { transform: translateY(-20px) scale(1.2); opacity: 0; }
+                @keyframes champagne {
+                    0% { transform: translateY(120%); opacity: 0; }
+                    10% { opacity: 1; }
+                    90% { opacity: 0.8; }
+                    100% { transform: translateY(-300%); opacity: 0; }
                 }
 
                 .animate-spin-slow { animation: spin-slow 8s linear infinite; }
                 .animate-bounce-subtle { animation: bounce-subtle 2.5s infinite ease-in-out; }
-                .animate-float-up { animation: float-up 3s infinite linear; }
+                .animate-champagne { animation: champagne 3s infinite linear; }
             `}</style>
         </div>
     )
