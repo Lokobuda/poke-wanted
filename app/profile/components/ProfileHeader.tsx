@@ -30,24 +30,17 @@ export default function ProfileHeader({
   onEditAvatar 
 }: ProfileHeaderProps) {
 
-  // NUEVA LÓGICA: Asumimos que no está cargada al principio
-  const [imgLoaded, setImgLoaded] = useState(false)
   const [imgError, setImgError] = useState(false)
   const [currentAvatar, setCurrentAvatar] = useState(avatarUrl)
 
   useEffect(() => { 
       setCurrentAvatar(avatarUrl)
-      // Al cambiar la URL, reseteamos estados
-      setImgLoaded(false)
       setImgError(false) 
   }, [avatarUrl])
 
   const safeNextXp = nextLevelXp || 1
   const progress = Math.min((xp / safeNextXp) * 100, 100)
   const isPremium = subscriptionType === 'GYM' || subscriptionType === 'PRO'
-
-  // Decidimos qué mostrar: ¿Hay URL y se cargó bien?
-  const showImage = currentAvatar && currentAvatar.length > 0 && imgLoaded && !imgError
 
   return (
     <div className="w-full flex flex-row items-center gap-4 sm:gap-6 md:gap-8 mb-8 sm:mb-10 animate-in fade-in slide-in-from-top-4 duration-700">
@@ -60,28 +53,25 @@ export default function ProfileHeader({
       >
         <div className="absolute -inset-1 bg-current blur opacity-30 group-hover:opacity-50 transition-opacity rounded-3xl"></div>
         
+        {/* Tamaño forzado para móvil: w-20 h-20 */}
         <div className="w-20 h-20 sm:w-24 sm:h-24 md:w-28 md:h-28 bg-slate-900 border-2 border-current/20 rounded-3xl flex items-center justify-center overflow-hidden relative z-10 shadow-2xl bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-slate-800 to-slate-950">
            
            <div className="absolute inset-0 bg-black/60 z-50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-[2px]">
               <Pencil className="text-white" size={24} />
            </div>
 
-           {/* LA IMAGEN SIEMPRE ESTÁ EN EL DOM PERO OCULTA HASTA QUE CARGA */}
-           {currentAvatar && !imgError && (
+           {/* LÓGICA SIMPLIFICADA: Intenta mostrar imagen. Si falla, muestra huevo. */}
+           {currentAvatar && !imgError ? (
                <img 
                    src={currentAvatar} 
                    alt="Buddy" 
-                   onLoad={() => setImgLoaded(true)} // ¡Éxito! Marcamos como cargada
-                   onError={() => setImgError(true)} // Fallo.
-                   className={`w-full h-full object-contain p-2 drop-shadow-xl pixelated rendering-pixelated group-hover:scale-110 transition-transform duration-500 ${imgLoaded ? 'opacity-100' : 'opacity-0 absolute'}`}
+                   onError={() => setImgError(true)}
+                   className="w-full h-full object-contain p-2 drop-shadow-xl pixelated rendering-pixelated group-hover:scale-110 transition-transform duration-500"
                    style={{ imageRendering: 'pixelated' }} 
                />
-           )}
-
-           {/* SI NO SE HA CARGADO AÚN O DIO ERROR, MOSTRAMOS EL HUEVO */}
-           {(!showImage) && (
-             <div className="absolute inset-0 flex flex-col items-center justify-center animate-bounce-slow bg-slate-900/50 z-0">
-                <span className="text-4xl sm:text-5xl filter drop-shadow-lg leading-none">🥚</span>
+           ) : (
+             <div className="flex flex-col items-center justify-center animate-bounce-slow w-full h-full">
+                <span className="text-3xl sm:text-5xl filter drop-shadow-lg leading-none">🥚</span>
              </div>
            )}
         </div>

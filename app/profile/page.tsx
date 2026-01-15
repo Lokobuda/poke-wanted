@@ -8,7 +8,7 @@ import {
   CheckCircle2, X, Sparkles, ChevronDown, ChevronLeft, ChevronRight,
   Layers, BarChart3, Trophy, Target, Filter, Search, FolderOpen, 
   ShieldCheck, Package, Lock, 
-  Ticket, CreditCard, Zap, ArrowLeft, Copy, CheckSquare, LogOut
+  Ticket, CreditCard, Zap, ArrowLeft, Copy, CheckSquare, LogOut, Trash2
 } from 'lucide-react'
 import { toPng } from 'html-to-image'
 import download from 'downloadjs'
@@ -87,6 +87,9 @@ function ProfileContent() {
   const [albumToDelete, setAlbumToDelete] = useState<string | null>(null)
   const [isDeletingAlbum, setIsDeletingAlbum] = useState(false)
   
+  // ESTADO PARA IMÁGENES BASE64 (SOLUCIÓN IOS)
+  const [base64Images, setBase64Images] = useState<Record<string, string>>({})
+
   useEffect(() => {
     const checkTutorial = async () => {
         if (isTutorialChecked.current) return;
@@ -108,7 +111,6 @@ function ProfileContent() {
     if (!searchParams) return;
     const openPro = searchParams.get('open_pro')
     if (openPro === 'true') { setIsRedeemOpen(true); router.replace('/profile', { scroll: false }) }
-    
     const paymentStatus = searchParams.get('payment')
     if (paymentStatus === 'success') {
         toast.success('¡Bienvenido al Club PRO!', { description: 'Tu suscripción se ha activado correctamente.' })
@@ -136,21 +138,52 @@ function ProfileContent() {
   const handleSelectAllFiltered = () => {
       const allIds = filteredCards.map(c => c.id)
       const allSelected = allIds.every(id => selectedForOrder.includes(id))
-      
-      if (allSelected) {
-          setSelectedForOrder(prev => prev.filter(id => !allIds.includes(id)))
-      } else {
-          setSelectedForOrder(prev => {
-              const newSet = new Set([...prev, ...allIds])
-              return Array.from(newSet)
-          })
-      }
+      if (allSelected) { setSelectedForOrder(prev => prev.filter(id => !allIds.includes(id))) } 
+      else { setSelectedForOrder(prev => { const newSet = new Set([...prev, ...allIds]); return Array.from(newSet) }) }
   }
 
   const handleLoadMore = () => setVisibleCount(prev => prev + 50)
-  const handleOpenPosterMode = () => { if (selectedForOrder.length === 0) return toast.warning("Selecciona al menos una carta."); setPosterPage(0); setIsPosterMode(true) }
   
-  // --- DESCARGA MEJORADA PARA SAFARI (CON BASE64 PROXY MANUAL) ---
+  // FUNCIÓN PARA CONVERTIR A BASE64 (SOLUCIÓN IOS)
+  const convertUrlToBase64 = async (url: string): Promise<string> => {
+      try {
+          const response = await fetch(url);
+          const blob = await response.blob();
+          return new Promise((resolve, reject) => {
+              const reader = new FileReader();
+              reader.onloadend = () => resolve(reader.result as string);
+              reader.onerror = reject;
+              reader.readAsDataURL(blob);
+          });
+      } catch (error) {
+          console.error("Error converting image:", error);
+          return url; // Fallback
+      }
+  }
+
+  const handleOpenPosterMode = async () => { 
+      if (selectedForOrder.length === 0) return toast.warning("Selecciona al menos una carta."); 
+      
+      setIsDownloading(true) // Usamos esto como loading state temporal
+      toast.info("Preparando imágenes...", { duration: 2000 })
+      
+      // Pre-convertir imágenes a Base64 para evitar errores de CORS en Safari
+      const selectedCards = missingCards.filter(c => selectedForOrder.includes(c.id));
+      const newBase64Map: Record<string, string> = {};
+      
+      for (const card of selectedCards) {
+          if (!base64Images[card.id]) {
+              const base64 = await convertUrlToBase64(card.image);
+              newBase64Map[card.id] = base64;
+          }
+      }
+      
+      setBase64Images(prev => ({ ...prev, ...newBase64Map }));
+      setIsDownloading(false);
+      setPosterPage(0); 
+      setIsPosterMode(true);
+  }
+  
   const handleInteractiveDownload = async (totalPages: number) => { 
     if (isDownloading) return; 
     setIsDownloading(true); 
@@ -161,7 +194,7 @@ function ProfileContent() {
         
         for (let i = 0; i < totalPages; i++) { 
             setPosterPage(i); 
-            // Espera para renderizado
+            // Espera crítica para renderizado en Safari (1.5s)
             await new Promise(resolve => setTimeout(resolve, 1500)); 
             
             const posterNode = document.getElementById('visible-poster'); 
@@ -169,11 +202,10 @@ function ProfileContent() {
             if (posterNode) { 
                 const dataUrl = await toPng(posterNode, { 
                     quality: 0.95, 
-                    pixelRatio: 1.5, // Reducido para evitar crashes de memoria en iOS
+                    pixelRatio: 1.5, 
                     cacheBust: true, 
                     skipAutoScale: true,
                     backgroundColor: '#0a0a0a',
-                    // Importante: No usar 'useCORS' aquí si las imágenes ya tienen crossOrigin o son base64
                 }); 
                 
                 setFlashActive(true); 
@@ -194,7 +226,7 @@ function ProfileContent() {
         
     } catch (error) { 
         console.error('Error:', error); 
-        toast.error('Error al generar imagen', { description: 'Inténtalo de nuevo, Safari a veces se pone tímido.' }); 
+        toast.error('Error al generar imagen', { description: 'Inténtalo de nuevo.' }); 
         setIsDownloading(false) 
     } 
   }
@@ -214,37 +246,20 @@ function ProfileContent() {
       let currentStatus: 'INDIE' | 'GYM' | 'PRO' = 'INDIE'; 
       if (profile) {
         if (profile.starter_gen && profile.starter_type) { setStarterData({ gen: profile.starter_gen, type: profile.starter_type }) } else { setShowStarterSelector(true) }
-        
         if (profile.subscription_status === 'GYM') { 
           currentStatus = 'GYM'; 
-          if (profile.gyms) { 
-              const g: any = profile.gyms; 
-              setGymData({ name: g.name, logo_url: g.logo_url }) 
-          }
-          if (profile.gym_id) {
-              const { data: offers } = await supabase.from('gym_offers').select('*').eq('gym_id', profile.gym_id).eq('is_active', true)
-              if (offers) setGymOffers(offers)
-          }
-        } else if (profile.subscription_status === 'PRO') { 
-            currentStatus = 'PRO'; 
-        }
+          if (profile.gyms) { const g: any = profile.gyms; setGymData({ name: g.name, logo_url: g.logo_url }) }
+          if (profile.gym_id) { const { data: offers } = await supabase.from('gym_offers').select('*').eq('gym_id', profile.gym_id).eq('is_active', true); if (offers) setGymOffers(offers) }
+        } else if (profile.subscription_status === 'PRO') { currentStatus = 'PRO'; }
       } else { setShowStarterSelector(true) }
       setSubscriptionType(currentStatus)
 
-      const { data: setsData } = await supabase.from('sets').select('id, name')
-      const setsMap = new Map<string, string>(); setsData?.forEach((s: any) => setsMap.set(s.id, s.name))
-
-      const { data: inventoryData } = await supabase.from('inventory').select('card_id, quantity_normal, quantity_holo, quantity_reverse').eq('user_id', session.user.id)
-      const inventoryMap = new Map(); inventoryData?.forEach((item: any) => inventoryMap.set(item.card_id, item))
-
+      const { data: setsData } = await supabase.from('sets').select('id, name'); const setsMap = new Map<string, string>(); setsData?.forEach((s: any) => setsMap.set(s.id, s.name))
+      const { data: inventoryData } = await supabase.from('inventory').select('card_id, quantity_normal, quantity_holo, quantity_reverse').eq('user_id', session.user.id); const inventoryMap = new Map(); inventoryData?.forEach((item: any) => inventoryMap.set(item.card_id, item))
       const { count: gradedCount } = await supabase.from('graded_cards').select('id', { count: 'exact' }).eq('user_id', session.user.id)
       const { count: sealedCount } = await supabase.from('sealed_products').select('id', { count: 'exact' }).eq('user_id', session.user.id)
 
-      const totalGraded = gradedCount || 0; 
-      const totalSealed = sealedCount || 0
-      const gradedScoreBoost = totalGraded * 50; 
-      const sealedScoreBoost = totalSealed * 20 
-
+      const totalGraded = gradedCount || 0; const totalSealed = sealedCount || 0; const gradedScoreBoost = totalGraded * 50; const sealedScoreBoost = totalSealed * 20 
       const { data: albumsData } = await supabase.from('albums').select(`id, name, is_master_set, set_id, created_at, album_cards (acquired, card_variants (id, image_url, cards (name, set_id, collector_number, rarity)))`).eq('user_id', session.user.id).order('created_at', { ascending: false })
 
       let totalCardsOwned = 0; let totalSlotsTracked = 0; let totalOwnedInTracked = 0; let totalScore = 0
@@ -282,49 +297,28 @@ function ProfileContent() {
     } catch (error) { console.error(error); toast.error('Error al cargar perfil') } finally { if(mounted) setLoading(false) }
   }
 
-  // --- BOTÓN DE PAGO REPARADO ---
   const handleSubscribe = async () => {
-    console.log("💳 Iniciando proceso de suscripción..."); // LOG DE CONTROL
     setIsSubscribing(true);
-    
     try {
         const { data: { session } } = await supabase.auth.getSession();
         const token = session?.access_token;
-        
-        if (!token) {
-            console.error("❌ No hay sesión activa");
-            throw new Error('No se encontró sesión activa.');
-        }
+        if (!token) throw new Error('No se encontró sesión activa.');
 
-        console.log("🚀 Enviando petición a /api/checkout...");
         const response = await fetch('/api/checkout', { 
             method: 'POST',
-            headers: { 
-                'Content-Type': 'application/json', 
-                'Authorization': `Bearer ${token}` 
-            }
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }
         });
 
-        console.log("📥 Respuesta recibida:", response.status);
-
         if (!response.ok) {
-            const errorData = await response.json().catch(() => ({ error: 'Error desconocido del servidor' }));
-            console.error("🔥 Error del servidor:", errorData);
-            throw new Error(errorData.error || `Error ${response.status}: ${response.statusText}`);
+            const err = await response.json();
+            throw new Error(err.error || await response.text());
         }
         
         const data = await response.json();
-        console.log("✅ Datos de pago recibidos:", data);
-
-        if (data.url) {
-            window.location.href = data.url;
-        } else {
-            throw new Error('No se recibió la URL de pago de Stripe');
-        }
-
+        if (data.url) window.location.href = data.url;
+        else throw new Error('No se recibió la URL de pago');
     } catch (error: any) {
-        console.error('💥 Error crítico en handleSubscribe:', error);
-        toast.error('Error al iniciar el pago', { description: error.message });
+        toast.error('Error de pago', { description: error.message });
         setIsSubscribing(false);
     }
   }
@@ -349,16 +343,8 @@ function ProfileContent() {
 
   const handleConfirmDeleteAlbum = async () => { if (!albumToDelete) return; setIsDeletingAlbum(true); const { error } = await supabase.from('albums').delete().eq('id', albumToDelete); if (!error) setStats(prev => ({ ...prev, projectsProgress: prev.projectsProgress.filter(p => p.id !== albumToDelete), totalAlbums: Math.max(0, prev.totalAlbums - 1) })); setIsDeletingAlbum(false); setAlbumToDelete(null) }
   const handleStarterSelect = async (gen: string, type: string) => { const { data: { session } } = await supabase.auth.getSession(); if (!session) return; const cleanGen = gen.startsWith('gen') ? gen : `gen${gen}`; const { error } = await supabase.from('profiles').upsert({ id: session.user.id, starter_gen: cleanGen, starter_type: type }, { onConflict: 'id' }); if (!error) { setStarterData({ gen: cleanGen, type }); setShowStarterSelector(false); setShowTutorial(true); fetchProfileData() } }
-
-  const handleFinishTutorial = async () => {
-    localStorage.setItem('tutorial_completed', 'true')
-    localStorage.setItem('tutorial_phase', 'creating')
-    setShowTutorial(false)
-    try { const { data: { session } } = await supabase.auth.getSession(); if (session) await supabase.from('profiles').update({ has_completed_tutorial: true }).eq('id', session.user.id) } catch (err) { console.log("Error guardando tutorial") }
-    router.push('/create', { scroll: false })
-  }
-
-  const closeTutorialPermanently = async () => { setShowTutorial(false); localStorage.setItem('tutorial_completed', 'true'); try { const { data: { session } } = await supabase.auth.getSession(); if (session) await supabase.from('profiles').update({ has_completed_tutorial: true }).eq('id', session.user.id) } catch (err) { console.log("Error guardando tutorial skip") } }
+  const handleFinishTutorial = async () => { localStorage.setItem('tutorial_completed', 'true'); localStorage.setItem('tutorial_phase', 'creating'); setShowTutorial(false); router.push('/create', { scroll: false }) }
+  const closeTutorialPermanently = async () => { setShowTutorial(false); localStorage.setItem('tutorial_completed', 'true'); }
 
   if (loading) return <div className="min-h-screen bg-slate-950 flex items-center justify-center"><Loader2 className="animate-spin text-violet-500" /></div>
   
@@ -380,16 +366,10 @@ function ProfileContent() {
             <div className="grid grid-cols-3 gap-3 w-full h-full max-h-full">
                 {cards.map((card:any) => (
                     <div key={card.id} className="relative aspect-[0.716] rounded-lg overflow-hidden shadow-lg border border-white/10 group bg-slate-900">
-                        {/* AQUÍ ESTÁ LA SOLUCIÓN DEFINITIVA PARA IMÁGENES:
-                           1. referrerPolicy="no-referrer": Esencial para saltar bloqueos de hotlink básicos.
-                           2. crossOrigin="anonymous": Necesario para que el canvas (toPng) pueda leer la imagen.
-                           3. Cache Busting (?t=...): Obliga al navegador a pedir una copia nueva y limpia.
-                        */}
+                        {/* IMAGEN DE PÓSTER - USA BASE64 */}
                         <img 
-                            src={`${card.image}?t=${new Date().getTime()}`} 
+                            src={base64Images[card.id] || card.image} 
                             className="w-full h-full object-cover" 
-                            crossOrigin="anonymous" 
-                            referrerPolicy="no-referrer"
                         />
                     </div>
                 ))}
@@ -500,6 +480,18 @@ function ProfileContent() {
                                 {showBottomStats && (<p className="text-[10px] text-slate-500 mt-2 text-right">{album.owned} / {album.total} items</p>)}
                             </div>
                         </div>
+                        
+                        {/* --- BOTÓN DE BORRAR ÁLBUM REINTRODUCIDO --- */}
+                        {!album.isVault && !album.isSealed && !isLocked && (
+                            <button 
+                                onClick={(e) => { e.stopPropagation(); setAlbumToDelete(album.id); }}
+                                className="absolute top-2 right-2 p-2 bg-slate-950/80 rounded-full text-slate-500 hover:text-red-500 hover:bg-red-500/10 border border-white/5 opacity-0 group-hover:opacity-100 focus:opacity-100 transition-all md:opacity-0 active:opacity-100"
+                                title="Eliminar álbum"
+                            >
+                                <Trash2 size={14} />
+                            </button>
+                        )}
+                        {/* --------------------------------------------- */}
                     </div>
                  )
                })}
@@ -519,10 +511,11 @@ function ProfileContent() {
                         </div>
                     ) : (
                         <div className="space-y-6 flex-1 flex flex-col justify-end">
-                            {/* IMÁGENES PREVIEW WANTED LIST (REJILLA NORMAL) - SIN crossOrigin NI referrerPolicy para evitar problemas de carga normal */}
+                            {/* IMÁGENES PREVIEW WANTED LIST (REJILLA NORMAL) - SIN crossOrigin para que carguen normal */}
                             <div className="flex gap-4 overflow-x-auto pb-4">
                                 {missingCards.filter(c => selectedForOrder.includes(c.id)).map(c => (
-                                    <img key={c.id} src={c.image} className="h-32 rounded-lg shadow-lg" loading="lazy" />
+                                    // TRUCO: referrerpolicy "no-referrer" para evitar bloqueos básicos de hotlinking
+                                    <img key={c.id} src={c.image} className="h-32 rounded-lg shadow-lg" referrerPolicy="no-referrer" />
                                 ))}
                             </div>
                             <button onClick={handleOpenPosterMode} className="w-full py-4 bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white font-black rounded-xl uppercase tracking-widest hover:scale-[1.02] transition-transform"><Share2 size={16} className="inline mr-2" /> Crear Póster</button>
@@ -559,10 +552,6 @@ function ProfileContent() {
                 </div>
             )}
         </div>
-        
-        {/* BOTÓN CERRAR SESIÓN MÓVIL (DESACTIVADO PORQUE YA ESTÁ EN EL NAVBAR) */}
-        {/* <div className="mt-12 md:hidden px-6 pb-12">...</div> */}
-
       </div>
 
       {isSelectorOpen && (
@@ -605,10 +594,11 @@ function ProfileContent() {
         </div>
       )}
 
-      {/* MODALES DE PAGO Y CONFIRMACIÓN SE MANTIENEN IGUAL */}
+      {/* MODALES */}
       <ConfirmModal isOpen={!!albumToDelete} onClose={() => setAlbumToDelete(null)} onConfirm={handleConfirmDeleteAlbum} title="¿Eliminar Álbum?" description="Esta acción eliminará el álbum y todas las estadísticas asociadas." confirmText="Eliminar Álbum" isProcessing={isDeletingAlbum} variant="danger" />
       {isRedeemOpen && (
           <div className="fixed inset-0 z-[300] bg-black/90 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200">
+              {/* ... (Contenido del modal de pago, sin cambios) ... */}
               <div className="relative w-full max-w-4xl bg-slate-950 border border-white/10 rounded-3xl shadow-2xl overflow-hidden flex flex-col md:flex-row h-[600px] md:h-[500px]">
                   <div className="w-full md:w-2/5 bg-gradient-to-br from-amber-500/20 via-slate-900 to-black p-8 flex flex-col relative overflow-hidden">
                       <div className="absolute top-0 right-0 w-64 h-64 bg-amber-500/20 blur-[100px] rounded-full pointer-events-none" />

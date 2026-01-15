@@ -42,7 +42,7 @@ export default function Slab({ slab, onClick, className = '' }: SlabProps) {
             style={{
                 background: '#050505',
                 boxShadow: isTen 
-                    ? `0 0 25px -8px ${goldGlowTight}, 0 0 60px -20px ${goldGlowSoft}, 0 0 15px -5px ${companyColor}` 
+                    ? `0 0 15px -5px ${goldGlowTight}, 0 0 40px -10px ${goldGlowSoft}, 0 0 10px -5px ${companyColor}` 
                     : `0 20px 40px -10px rgba(0,0,0,0.9)`
             }}
         >
@@ -61,41 +61,39 @@ export default function Slab({ slab, onClick, className = '' }: SlabProps) {
                 <div className="absolute inset-0 border rounded-[18px] pointer-events-none z-50 transition-colors duration-500" 
                      style={{ borderColor: isTen ? `${goldColor}60` : 'rgba(255,255,255,0.08)' }}></div>
                 
-                {/* --- HEADER (ETIQUETA) --- */}
-                <div className="h-[60px] md:h-[70px] w-full relative z-20 bg-gradient-to-b from-[#151515] to-[#0a0a0a] border-b border-white/5 flex items-center justify-between px-3 md:px-4">
+                {/* --- HEADER (ETIQUETA) REESTRUCTURADO --- */}
+                <div className="h-[65px] md:h-[75px] w-full relative z-20 bg-gradient-to-b from-[#151515] to-[#0a0a0a] border-b border-white/5 flex items-center justify-between px-2.5 py-2">
                     <div className="absolute inset-0 opacity-20 mix-blend-overlay" style={{ backgroundImage: noiseBg }}></div>
                     
-                    {/* IZQUIERDA: Info de la Carta + CERTIFICADO */}
-                    <div className="flex flex-col items-start justify-center max-w-[40%] z-10 h-full">
-                        <span className="text-[9px] md:text-[10px] font-bold text-slate-200 uppercase tracking-tight leading-tight line-clamp-2">{pokeName}</span>
-                        <span className="text-[6px] md:text-[7px] font-bold text-slate-500 tracking-wider uppercase mt-0.5 truncate w-full">{s.set_name || 'UNK'}</span>
-                        
-                        {certNumber && (
-                            <span className="text-[5px] md:text-[6px] font-mono text-slate-400 mt-0.5 tracking-widest opacity-70">
-                                #{certNumber}
-                            </span>
-                        )}
-                    </div>
-
-                    {/* CENTRO: Empresa */}
-                    <div className="absolute left-1/2 -translate-x-1/2 top-1/2 -translate-y-1/2 flex flex-col items-center justify-center z-0">
-                        <span className="text-[16px] md:text-[20px] font-black tracking-[0.1em] uppercase drop-shadow-xl" 
-                              style={{ color: isTen ? 'white' : companyColor, textShadow: `0 0 15px ${companyGlow}` }}>
+                    {/* IZQUIERDA: Info + Empresa (Apilados para ahorrar espacio) */}
+                    <div className="flex flex-col items-start justify-center flex-1 min-w-0 pr-2 z-10">
+                        {/* EMPRESA (Ahora arriba pequeño) */}
+                        <span className="text-[10px] font-black uppercase tracking-widest leading-none mb-1" style={{ color: companyColor }}>
                             {graderRaw}
                         </span>
-                        <div className="h-[2px] w-full mt-0.5 rounded-full opacity-80" style={{ background: companyColor }}></div>
+                        
+                        {/* NOMBRE POKEMON */}
+                        <span className="text-[9px] md:text-[11px] font-bold text-slate-200 uppercase tracking-tight leading-none truncate w-full">
+                            {pokeName}
+                        </span>
+                        
+                        {/* SET / CERT */}
+                        <div className="flex items-center gap-1.5 mt-1 opacity-60">
+                             <span className="text-[6px] md:text-[7px] font-bold text-slate-400 tracking-wider uppercase truncate max-w-[60px]">{s.set_name || 'UNK'}</span>
+                             {certNumber && <span className="text-[5px] font-mono text-slate-500">#{certNumber}</span>}
+                        </div>
                     </div>
 
-                    {/* DERECHA: NOTA */}
-                    <div className="relative flex items-center justify-center z-10">
+                    {/* DERECHA: NOTA (Bloque Fijo) */}
+                    <div className="relative flex items-center justify-center z-10 shrink-0">
                         {isTen && (
-                            <div className="absolute -top-3 left-1/2 -translate-x-1/2 text-yellow-400 drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] animate-bounce-subtle z-20">
-                                <Crown size={10} fill="#ffd700" strokeWidth={0} />
+                            <div className="absolute -top-2.5 left-1/2 -translate-x-1/2 text-yellow-400 drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] animate-bounce-subtle z-20">
+                                <Crown size={9} fill="#ffd700" strokeWidth={0} />
                             </div>
                         )}
-                        <div className={`flex items-center justify-center w-8 h-7 md:w-11 md:h-9 rounded-lg border backdrop-blur-md transition-all duration-500 ${isTen ? 'border-yellow-500/40' : 'border-white/10'}`}
+                        <div className={`flex items-center justify-center w-9 h-8 md:w-12 md:h-10 rounded-lg border backdrop-blur-md transition-all duration-500 ${isTen ? 'border-yellow-500/40' : 'border-white/10'}`}
                              style={{ background: isTen ? `linear-gradient(135deg, ${goldColor}20, rgba(0,0,0,0.8))` : 'rgba(0,0,0,0.4)', boxShadow: isTen ? `inset 0 0 15px ${goldGlowTight}` : `0 0 10px -2px ${companyGlow}` }}>
-                            <span className="text-[16px] md:text-[22px] font-black leading-none drop-shadow-lg" 
+                            <span className="text-[18px] md:text-[24px] font-black leading-none drop-shadow-lg" 
                                 style={{ color: isTen ? goldColor : 'white', textShadow: isTen ? `0 2px 10px ${goldGlowTight}` : `0 0 10px ${companyColor}` }}>
                                 {gradeVal}
                             </span>
@@ -104,7 +102,7 @@ export default function Slab({ slab, onClick, className = '' }: SlabProps) {
                 </div>
 
                 {/* --- POZO DE LA CARTA --- */}
-                <div className="flex-1 relative w-full bg-[#030303] flex items-center justify-center p-2 md:p-3 overflow-hidden shadow-[inset_0_10px_30px_rgba(0,0,0,1)]">
+                <div className="flex-1 relative w-full bg-[#030303] flex items-center justify-center p-2 overflow-hidden shadow-[inset_0_10px_30px_rgba(0,0,0,1)]">
                     <div className={`absolute inset-0 transition-opacity duration-700 ${isTen ? 'opacity-40 group-hover:opacity-60' : 'opacity-20 group-hover:opacity-40'}`}
                         style={{ background: `radial-gradient(circle at center, ${companyColor}, transparent 70%)`, filter: 'blur(25px)' }}
                     />
@@ -112,7 +110,9 @@ export default function Slab({ slab, onClick, className = '' }: SlabProps) {
                         <div className="relative w-full h-full flex items-center justify-center z-20">
                             <img src={imgUrl} className="h-full w-auto object-contain transition-transform duration-500 group-hover:scale-105" alt={pokeName} />
                         </div>
-                    ) : (<div className="opacity-10 text-white z-20"><Box size={32} /></div>)}
+                    ) : (<div className="opacity-10 text-white z-20"><Box size={24} /></div>)}
+                    
+                    {/* BRILLO SUPERIOR */}
                     <div className="absolute inset-0 z-30 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none mix-blend-color-dodge"
                             style={{
                                 background: isTen 
@@ -124,29 +124,11 @@ export default function Slab({ slab, onClick, className = '' }: SlabProps) {
                 </div>
             </div>
 
-            {/* --- EFECTO DE PARTÍCULAS --- */}
-            {isTen && (
-                <div className="absolute -inset-10 z-[100] pointer-events-none overflow-visible">
-                    <div className="absolute bottom-10 left-[10%] w-0.5 h-0.5 bg-yellow-300 rounded-full blur-[0.5px] animate-rise-1 shadow-[0_0_5px_#ffd700]"></div>
-                    <div className="absolute bottom-4 left-[20%] w-[1px] h-[1px] bg-white rounded-full animate-rise-4 delay-75"></div>
-                    <div className="absolute bottom-0 left-[30%] w-1 h-1 bg-amber-200 rounded-full blur-[0.5px] animate-rise-2 shadow-[0_0_6px_#ffd700]"></div>
-                </div>
-            )}
-
             <style jsx>{`
                 @keyframes spin-slow { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
                 @keyframes bounce-subtle { 0%, 100% { transform: translate(-50%, -8%); } 50% { transform: translate(-50%, 8%); } }
-                @keyframes rise {
-                    0% { transform: translateY(0) translateX(0) scale(0.5); opacity: 0; }
-                    10% { opacity: 1; }
-                    50% { transform: translateY(-200px) translateX(10px) scale(1); }
-                    100% { transform: translateY(-450px) translateX(-10px) scale(0); opacity: 0; }
-                }
                 .animate-spin-slow { animation: spin-slow 8s linear infinite; }
                 .animate-bounce-subtle { animation: bounce-subtle 2.5s infinite ease-in-out; }
-                .animate-rise-1 { animation: rise 2s infinite cubic-bezier(0.4, 0, 0.2, 1); }
-                .animate-rise-2 { animation: rise 2.5s infinite cubic-bezier(0.4, 0, 0.2, 1) 0.3s; }
-                .animate-rise-4 { animation: rise 2.2s infinite cubic-bezier(0.4, 0, 0.2, 1) 0.1s; }
             `}</style>
         </div>
     )
