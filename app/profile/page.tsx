@@ -15,12 +15,10 @@ import download from 'downloadjs'
 import { toast } from 'sonner'
 import ConfirmModal from '../components/ConfirmModal'
 
-// COMPONENTES
 import ProfileHeader from './components/ProfileHeader'
 import StarterSelector from '../components/StarterSelector'
 import TutorialOverlay, { TutorialStep } from '../components/TutorialOverlay'
 
-// UTILIDADES
 import { getCardScore } from '../../lib/scoring'
 import { RANKS, STARTER_PATHS } from '../../lib/ranks'
 
@@ -120,7 +118,6 @@ function ProfileContent() {
   }, [searchParams]) 
 
   const uniqueSets = useMemo(() => { const sets = missingCards.map(c => ({ id: c.setId, name: c.setName })); const unique = sets.filter((v, i, a) => a.findIndex(t => t.id === v.id) === i); return unique.sort((a, b) => a.name.localeCompare(b.name)) }, [missingCards])
-  const uniqueRarities = useMemo(() => { return [...new Set(missingCards.map(c => c.rarity))].filter(Boolean).sort() }, [missingCards])
   const filteredCards = useMemo(() => { return missingCards.filter(card => { const matchSet = filterSet === 'ALL' || card.setId === filterSet; const matchRarity = filterRarity === 'ALL' || card.rarity === filterRarity; const matchAlbum = filterAlbum === 'ALL' || card.albumIds.includes(filterAlbum); const matchSearch = card.name.toLowerCase().includes(searchQuery.toLowerCase()) || card.setName.toLowerCase().includes(searchQuery.toLowerCase()); return matchSet && matchRarity && matchAlbum && matchSearch }) }, [missingCards, filterSet, filterRarity, filterAlbum, searchQuery])
   
   const toggleSelectCard = (id: string) => setSelectedForOrder(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id])
@@ -134,9 +131,13 @@ function ProfileContent() {
 
   const handleLoadMore = () => setVisibleCount(prev => prev + 50)
   
+  // --- CONVERTIDOR ROBUSTO PARA IOS ---
+  // Descarga la imagen y la convierte a String (Base64) para que Safari no se queje
   const convertUrlToBase64 = async (url: string): Promise<string> => {
       try {
-          const response = await fetch(url);
+          // Añadimos timestamp para evitar caché agresiva
+          const safeUrl = `${url}?t=${new Date().getTime()}`;
+          const response = await fetch(safeUrl, { mode: 'cors' });
           const blob = await response.blob();
           return new Promise((resolve, reject) => {
               const reader = new FileReader();
@@ -146,29 +147,33 @@ function ProfileContent() {
           });
       } catch (error) {
           console.error("Error converting image:", error);
-          return url;
+          return url; // Fallback por si falla, aunque Safari podría volver a fallar
       }
   }
 
   const handleOpenPosterMode = async () => { 
       if (selectedForOrder.length === 0) return toast.warning("Selecciona al menos una carta."); 
+      
       setIsDownloading(true)
-      toast.info("Preparando imágenes...", { duration: 2000 })
+      toast.info("Preparando imágenes...", { duration: 2000 }) // Feedback al usuario
+      
       const selectedCards = missingCards.filter(c => selectedForOrder.includes(c.id));
       const newBase64Map: Record<string, string> = {};
+      
+      // Convertimos TODAS las imágenes antes de mostrar el póster
       for (const card of selectedCards) {
           if (!base64Images[card.id]) {
               const base64 = await convertUrlToBase64(card.image);
               newBase64Map[card.id] = base64;
           }
       }
+      
       setBase64Images(prev => ({ ...prev, ...newBase64Map }));
       setIsDownloading(false);
       setPosterPage(0); 
       setIsPosterMode(true);
   }
   
-  // --- TÉCNICA DOBLE DISPARO PARA IOS ---
   const handleInteractiveDownload = async (totalPages: number) => { 
     if (isDownloading) return; 
     setIsDownloading(true); 
@@ -179,26 +184,12 @@ function ProfileContent() {
         
         for (let i = 0; i < totalPages; i++) { 
             setPosterPage(i); 
-            // 1. Espera larga para renderizado DOM
-            await new Promise(resolve => setTimeout(resolve, 1500)); 
+            // Espera obligatoria para que el DOM se pinte en móvil
+            await new Promise(resolve => setTimeout(resolve, 2000)); 
             
             const posterNode = document.getElementById('visible-poster'); 
             
             if (posterNode) { 
-                // 2. DISPARO DE CALENTAMIENTO (Ignoramos el resultado)
-                // Esto fuerza a Safari a procesar las imágenes en el canvas interno
-                await toPng(posterNode, { 
-                    quality: 0.1, 
-                    pixelRatio: 1,
-                    cacheBust: true, 
-                    skipAutoScale: true,
-                    backgroundColor: '#0a0a0a',
-                }).catch(() => console.log("Warmup shot failed, continuing..."));
-
-                // 3. Pequeña pausa tras calentamiento
-                await new Promise(resolve => setTimeout(resolve, 500));
-
-                // 4. DISPARO REAL
                 const dataUrl = await toPng(posterNode, { 
                     quality: 0.95, 
                     pixelRatio: 1.5, 
@@ -210,7 +201,7 @@ function ProfileContent() {
                 setFlashActive(true); 
                 setTimeout(() => setFlashActive(false), 200); 
                 download(dataUrl, `pokebinders-wanted-${username}-page-${i + 1}.png`); 
-                await new Promise(resolve => setTimeout(resolve, 1000)); // Pausa entre descargas
+                await new Promise(resolve => setTimeout(resolve, 1000)); 
             } 
         } 
         
@@ -325,7 +316,6 @@ function ProfileContent() {
 
   const PosterTemplate = ({ cards, pageIndex, totalPages }: any) => (
     <div id="visible-poster" className="relative w-[400px] h-[711px] bg-[#0a0a0a] flex flex-col shadow-2xl border border-white/10 overflow-hidden isolate mx-auto transition-all duration-500">
-        {/* ... (Contenido del póster igual) ... */}
         <div className={`absolute inset-0 bg-white z-[100] pointer-events-none transition-opacity duration-150 ease-out ${flashActive ? 'opacity-100' : 'opacity-0'}`} />
         <div className="absolute inset-0 bg-slate-950 -z-30" />
         <div className="absolute inset-0 opacity-20 -z-20" style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, rgba(255,255,255,0.15) 1px, transparent 0)', backgroundSize: '20px 20px' }} />
@@ -336,7 +326,9 @@ function ProfileContent() {
             <div className="grid grid-cols-3 gap-3 w-full h-full max-h-full">
                 {cards.map((card:any) => (
                     <div key={card.id} className="relative aspect-[0.716] rounded-lg overflow-hidden shadow-lg border border-white/10 group bg-slate-900">
-                        {/* IMAGEN DE PÓSTER - USA BASE64 */}
+                        {/* AQUÍ USAMOS LA IMAGEN CONVERTIDA A BASE64
+                           Esto engaña a Safari para que piense que la imagen es interna.
+                        */}
                         <img 
                             src={base64Images[card.id] || card.image} 
                             className="w-full h-full object-cover" 
@@ -386,7 +378,9 @@ function ProfileContent() {
     <div className="min-h-screen bg-slate-950 text-white pb-20 relative font-sans">
       <StarterSelector isOpen={showStarterSelector} onSelect={handleStarterSelect} />
       {showTutorial && !showStarterSelector && (<TutorialOverlay steps={PROFILE_STEPS} onComplete={handleFinishTutorial} onClose={closeTutorialPermanently} />)}
+      
       <div className="fixed inset-0 pointer-events-none bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-violet-900/10 via-slate-950 to-black" />
+
       <div className="relative pt-12 px-6 max-w-5xl mx-auto">
         <div className="flex flex-col md:flex-row md:items-start justify-between gap-4 mb-8">
             <div id="tour-rank" className="flex-1">
@@ -451,17 +445,17 @@ function ProfileContent() {
                             </div>
                         </div>
                         
-                        {/* --- BOTÓN DE BORRAR ÁLBUM SUTIL (ESTILO SLABS) --- */}
+                        {/* --- BOTÓN DE BORRAR ÁLBUM SUTIL (VISIBLE EN MÓVIL, HOVER EN PC) --- */}
                         {!album.isVault && !album.isSealed && !isLocked && (
                             <button 
                                 onClick={(e) => { e.stopPropagation(); setAlbumToDelete(album.id); }}
-                                className="absolute -top-2 -right-2 z-[60] w-8 h-8 flex items-center justify-center rounded-full bg-slate-900 border border-white/10 text-slate-500 shadow-xl opacity-80 hover:opacity-100 hover:text-white hover:bg-red-500/80 hover:border-red-500 transition-all active:scale-95"
+                                // Cambio clave: opacity-100 en móvil (default), group-hover:opacity-100 en md
+                                className="absolute -top-2 -right-2 p-1.5 bg-slate-900 border border-white/10 rounded-full text-slate-500 hover:text-red-500 hover:border-red-500 transition-all z-20 opacity-100 md:opacity-0 md:group-hover:opacity-100 active:scale-95"
                                 title="Eliminar álbum"
                             >
                                 <Trash2 size={14} />
                             </button>
                         )}
-                        {/* --------------------------------------------- */}
                     </div>
                  )
                })}
@@ -492,7 +486,7 @@ function ProfileContent() {
                     )}
                 </div>
             </div>
-            {/* SOCIOS SPACE */}
+            {/* ... (Resto igual) ... */}
             {showPartnerSpace && gymData && (
                 <div className="bg-slate-900/40 backdrop-blur-xl rounded-[40px] p-10 border border-white/10 shadow-2xl relative overflow-hidden flex flex-col h-full animate-in slide-in-from-right-4 duration-700">
                     <div className="relative z-10 flex-1 flex flex-col h-full">
