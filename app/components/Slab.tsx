@@ -19,7 +19,7 @@ export default function Slab({ slab, onClick, onDelete, className = '', showDele
     
     const isTen = String(gradeVal).includes('10') 
 
-    // --- LOGICA DE COLORES SEGURA ---
+    // --- COLORES ---
     let companyColor = "#94a3b8" 
     let glowColor = "rgba(148, 163, 184, 0.6)"
 
@@ -35,13 +35,18 @@ export default function Slab({ slab, onClick, onDelete, className = '', showDele
     const imgUrl = s.image_url || s.custom_image_url
     const pokeName = s.pokemon_name || s.name || 'UNKNOWN'
 
-    // --- ESTILOS DE LA NOTA (Definidos fuera para evitar errores) ---
-    const gradeStyle = {
-        background: isTen ? `linear-gradient(135deg, ${goldColor}20, rgba(0,0,0,0.8))` : 'rgba(0,0,0,0.4)',
-        boxShadow: isTen ? `inset 0 0 15px ${goldGlowTight}` : `0 0 10px -2px ${glowColor}`,
-        textShadow: isTen ? `0 2px 10px ${goldGlowTight}` : `0 0 10px ${companyColor}`,
-        color: isTen ? goldColor : 'white'
-    }
+    // --- ESTILOS DE LA NOTA ---
+    const gradeBoxBackground = isTen 
+        ? 'linear-gradient(135deg, ' + goldColor + '20, rgba(0,0,0,0.8))' 
+        : 'rgba(0,0,0,0.4)';
+        
+    const gradeBoxShadow = isTen 
+        ? 'inset 0 0 15px ' + goldGlowTight 
+        : '0 0 10px -2px ' + glowColor; 
+
+    const gradeTextShadow = isTen 
+        ? '0 2px 10px ' + goldGlowTight 
+        : '0 0 10px ' + companyColor;
 
     return (
         <div 
@@ -50,8 +55,8 @@ export default function Slab({ slab, onClick, onDelete, className = '', showDele
             style={{
                 background: '#050505',
                 boxShadow: isTen 
-                    ? `0 0 15px -5px ${goldGlowTight}, 0 0 40px -10px ${goldGlowSoft}, 0 0 10px -5px ${companyColor}` 
-                    : `0 20px 40px -10px rgba(0,0,0,0.9)`
+                    ? '0 0 15px -5px ' + goldGlowTight + ', 0 0 40px -10px ' + goldGlowSoft + ', 0 0 10px -5px ' + companyColor
+                    : '0 20px 40px -10px rgba(0,0,0,0.9)'
             }}
         >
             {/* FONDO ANIMADO */}
@@ -67,34 +72,34 @@ export default function Slab({ slab, onClick, onDelete, className = '', showDele
             {/* MARCO CENTRAL */}
             <div className="absolute inset-[2px] bg-[#0a0a0a] rounded-[18px] z-10 flex flex-col overflow-hidden isolate">
                 
-                {/* --- EFECTO BURBUJAS (FOIL) --- */}
+                {/* --- EFECTO BURBUJAS (Sin mix-blend para asegurar visibilidad) --- */}
                 {isTen && (
-                    <div className="absolute inset-0 z-20 pointer-events-none opacity-50 mix-blend-overlay"
+                    <div className="absolute inset-0 z-20 pointer-events-none opacity-30"
                          style={{ 
-                             backgroundImage: `radial-gradient(circle at 50% 50%, white 1px, transparent 1px), radial-gradient(circle at 20% 20%, rgba(255,255,255,0.8) 1px, transparent 1px)`, 
-                             backgroundSize: '12px 12px, 24px 24px',
-                             maskImage: 'linear-gradient(to bottom, black 0%, transparent 60%)'
+                             backgroundImage: `radial-gradient(circle at 50% 50%, rgba(255,255,255,0.8) 1px, transparent 1.5px), radial-gradient(circle at 20% 20%, rgba(255,255,255,0.6) 1px, transparent 1px)`, 
+                             backgroundSize: '16px 16px, 32px 32px',
+                             maskImage: 'linear-gradient(to bottom, black 10%, transparent 80%)'
                          }} 
                     />
                 )}
 
                 <div className="absolute inset-0 border rounded-[18px] pointer-events-none z-50 transition-colors duration-500" 
-                     style={{ borderColor: isTen ? `${goldColor}60` : 'rgba(255,255,255,0.08)' }}></div>
+                     style={{ borderColor: isTen ? goldColor + '60' : 'rgba(255,255,255,0.08)' }}></div>
                 
                 {/* --- HEADER --- */}
-                <div className="h-[74px] w-full relative z-30 bg-gradient-to-b from-[#151515] to-[#0a0a0a] border-b border-white/5 flex flex-row items-center justify-between px-3 py-2 gap-2">
+                <div className="h-[78px] w-full relative z-30 bg-gradient-to-b from-[#151515] to-[#0a0a0a] border-b border-white/5 flex flex-row items-center justify-between px-3 py-2 gap-2">
                     
-                    {/* IZQUIERDA: Flex Column para evitar solapamientos */}
+                    {/* IZQUIERDA */}
                     <div className="flex flex-col justify-center items-start flex-1 min-w-0 h-full">
-                        <span className="text-[9px] font-black uppercase tracking-widest leading-none mb-0.5" style={{ color: companyColor }}>
+                        <span className="text-[9px] font-black uppercase tracking-widest leading-none mb-1 block" style={{ color: companyColor }}>
                             {graderRaw}
                         </span>
                         
-                        <span className="text-[11px] font-bold text-slate-200 uppercase tracking-tight leading-none truncate w-full">
+                        <span className="text-[11px] md:text-[12px] font-bold text-slate-200 uppercase tracking-tight leading-none truncate w-full block mb-1">
                             {pokeName}
                         </span>
                         
-                        <div className="flex items-center gap-1.5 opacity-60 w-full overflow-hidden mt-0.5">
+                        <div className="flex items-center gap-1.5 opacity-60 w-full overflow-hidden">
                              <span className="text-[8px] font-bold text-slate-400 tracking-wider uppercase truncate shrink-0">{s.set_name || 'UNK'}</span>
                              {certNumber && (
                                 <span className="text-[7px] font-mono text-slate-500 truncate border-l border-white/20 pl-1.5">
@@ -104,18 +109,18 @@ export default function Slab({ slab, onClick, onDelete, className = '', showDele
                         </div>
                     </div>
 
-                    {/* DERECHA: NOTA */}
-                    <div className="relative flex items-center justify-center shrink-0 w-10 h-10">
+                    {/* DERECHA */}
+                    <div className="relative flex items-center justify-center shrink-0 w-10 h-10 md:w-11 md:h-11">
                         {isTen && (
                             <div className="absolute -top-3 left-1/2 -translate-x-1/2 text-yellow-400 drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] animate-bounce-subtle z-20">
                                 <Crown size={12} fill="#ffd700" strokeWidth={0} />
                             </div>
                         )}
                         <div 
-                            className="flex items-center justify-center w-full h-full rounded-lg border backdrop-blur-md transition-all duration-500 border-white/10"
-                            style={gradeStyle}
+                            className={`flex items-center justify-center w-full h-full rounded-lg border backdrop-blur-md transition-all duration-500 ${isTen ? 'border-yellow-500/40' : 'border-white/10'}`}
+                            style={{ background: gradeBoxBackground, boxShadow: gradeBoxShadow }}
                         >
-                            <span className="text-[22px] font-black leading-none drop-shadow-lg">
+                            <span className="text-[20px] md:text-[22px] font-black leading-none drop-shadow-lg" style={{ color: isTen ? goldColor : 'white', textShadow: gradeTextShadow }}>
                                 {gradeVal}
                             </span>
                         </div>
@@ -125,7 +130,7 @@ export default function Slab({ slab, onClick, onDelete, className = '', showDele
                 {/* --- IMAGEN --- */}
                 <div className="flex-1 relative w-full bg-[#030303] flex items-center justify-center p-2 overflow-hidden shadow-[inset_0_10px_30px_rgba(0,0,0,1)]">
                     <div className={`absolute inset-0 transition-opacity duration-700 ${isTen ? 'opacity-40 group-hover:opacity-60' : 'opacity-20 group-hover:opacity-40'}`}
-                        style={{ background: `radial-gradient(circle at center, ${companyColor}, transparent 70%)`, filter: 'blur(25px)' }}
+                        style={{ background: 'radial-gradient(circle at center, ' + companyColor + ', transparent 70%)', filter: 'blur(25px)' }}
                     />
                     {imgUrl ? (
                         <div className="relative w-full h-full flex items-center justify-center z-20">
@@ -135,17 +140,13 @@ export default function Slab({ slab, onClick, onDelete, className = '', showDele
                 </div>
             </div>
 
-            {/* --- BOTÓN PAPELERA CORREGIDO (Pequeño y Sutil) --- */}
+            {/* --- BOTÓN PAPELERA --- */}
             {showDelete && onDelete && (
                 <button
-                    onClick={(e) => {
-                        e.stopPropagation();
-                        onDelete(e);
-                    }}
-                    // w-6 h-6 (muy pequeño), gris transparente por defecto
-                    className="absolute -top-1.5 -right-1.5 z-[60] w-6 h-6 flex items-center justify-center rounded-full bg-slate-900/90 border border-white/10 text-slate-500 shadow-sm backdrop-blur-md transition-all hover:bg-red-500 hover:text-white hover:border-red-400 active:scale-90"
+                    onClick={(e) => { e.stopPropagation(); onDelete(e); }}
+                    className="absolute -top-2 -right-2 z-[60] w-7 h-7 flex items-center justify-center rounded-full bg-slate-900 border border-white/10 text-slate-500 shadow-lg backdrop-blur-md transition-all hover:bg-red-500 hover:text-white hover:border-red-500 active:scale-90 active:bg-red-500 active:text-white"
                 >
-                    <Trash2 size={10} />
+                    <Trash2 size={12} />
                 </button>
             )}
 
