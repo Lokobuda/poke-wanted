@@ -19,21 +19,16 @@ export default function Slab({ slab, onClick, onDelete, className = '', showDele
     
     const isTen = String(gradeVal).includes('10') 
 
-    // --- COLORES ---
-    let companyColor = "#94a3b8" 
-    if (g.includes('PSA')) companyColor = "#ff2a2a"
-    else if (g.includes('BGS') || g.includes('BECKETT')) companyColor = "#fbbf24"
-    else if (g.includes('CGC')) companyColor = "#0088ff"
-    else if (g.includes('TAG')) companyColor = "#00fff2"
+    // --- COLORES (Lógica simplificada para evitar errores) ---
+    let companyColor = "#94a3b8" // Default slate
+    let glowColor = "rgba(148, 163, 184, 0.6)" 
 
-    // Convertir Hex a RGB manualmente para evitar errores de parseInt complejos
-    // Esto es un "hack" seguro: si es PSA (#ff2a2a), el glow es rojo.
-    let glowColor = "rgba(148, 163, 184, 0.6)" // Default slate
-    if (g.includes('PSA')) glowColor = "rgba(255, 42, 42, 0.6)"
-    else if (g.includes('BGS') || g.includes('BECKETT')) glowColor = "rgba(251, 191, 36, 0.6)"
-    else if (g.includes('CGC')) glowColor = "rgba(0, 136, 255, 0.6)"
-    else if (g.includes('TAG')) glowColor = "rgba(0, 255, 242, 0.6)"
+    if (g.includes('PSA')) { companyColor = "#ff2a2a"; glowColor = "rgba(255, 42, 42, 0.6)"; }
+    else if (g.includes('BGS') || g.includes('BECKETT')) { companyColor = "#fbbf24"; glowColor = "rgba(251, 191, 36, 0.6)"; }
+    else if (g.includes('CGC')) { companyColor = "#0088ff"; glowColor = "rgba(0, 136, 255, 0.6)"; }
+    else if (g.includes('TAG')) { companyColor = "#00fff2"; glowColor = "rgba(0, 255, 242, 0.6)"; }
 
+    // --- ORO (AURA PARA 10) ---
     const goldColor = "#ffd700" 
     const goldGlowTight = "rgba(255, 215, 0, 0.8)" 
     const goldGlowSoft = "rgba(255, 215, 0, 0.4)"
@@ -41,12 +36,11 @@ export default function Slab({ slab, onClick, onDelete, className = '', showDele
     const imgUrl = s.image_url || s.custom_image_url
     const pokeName = s.pokemon_name || s.name || 'UNKNOWN'
 
-    // --- ESTILOS BLINDADOS (Concatenación simple) ---
+    // --- ESTILOS DE LA NOTA (Concatenación segura) ---
     const gradeBoxBackground = isTen 
         ? 'linear-gradient(135deg, ' + goldColor + '20, rgba(0,0,0,0.8))' 
         : 'rgba(0,0,0,0.4)';
         
-    // AQUI ESTABA EL ERROR: Usamos la variable glowColor simple que acabamos de definir
     const gradeBoxShadow = isTen 
         ? 'inset 0 0 15px ' + goldGlowTight 
         : '0 0 10px -2px ' + glowColor; 
@@ -79,13 +73,14 @@ export default function Slab({ slab, onClick, onDelete, className = '', showDele
             {/* MARCO CENTRAL */}
             <div className="absolute inset-[2px] bg-[#0a0a0a] rounded-[18px] z-10 flex flex-col overflow-hidden isolate">
                 
-                {/* --- EFECTO BURBUJAS / FOIL --- */}
+                {/* --- EFECTO BURBUJAS / FOIL (RESTAURADO EXACTAMENTE EL QUE TE GUSTABA) --- */}
                 {isTen && (
-                    <div className="absolute inset-0 z-20 pointer-events-none opacity-60 mix-blend-overlay"
+                    <div className="absolute inset-0 z-20 pointer-events-none opacity-40 mix-blend-overlay"
                          style={{ 
-                             backgroundImage: 'radial-gradient(circle at 50% 50%, white 2px, transparent 2.5px)',
-                             backgroundSize: '24px 24px',
-                             maskImage: 'linear-gradient(to bottom, black 10%, transparent 90%)'
+                             // Doble gradiente para un efecto más rico y complejo
+                             backgroundImage: `radial-gradient(circle at 50% 50%, white 1px, transparent 1px), radial-gradient(circle at 20% 20%, rgba(255,255,255,0.8) 1px, transparent 1px)`, 
+                             backgroundSize: '12px 12px, 24px 24px',
+                             maskImage: 'linear-gradient(to bottom, black 0%, transparent 60%)'
                          }} 
                     />
                 )}
@@ -93,19 +88,22 @@ export default function Slab({ slab, onClick, onDelete, className = '', showDele
                 <div className="absolute inset-0 border rounded-[18px] pointer-events-none z-50 transition-colors duration-500" 
                      style={{ borderColor: isTen ? goldColor + '60' : 'rgba(255,255,255,0.08)' }}></div>
                 
-                {/* --- HEADER --- */}
+                {/* --- HEADER (Estructura vertical para móvil) --- */}
                 <div className="h-[74px] w-full relative z-30 bg-gradient-to-b from-[#151515] to-[#0a0a0a] border-b border-white/5 flex flex-row items-center justify-between px-3 py-2 gap-2">
                     
-                    {/* IZQUIERDA: Textos */}
+                    {/* IZQUIERDA: Textos en columna */}
                     <div className="flex flex-col justify-center items-start flex-1 min-w-0 h-full gap-0.5">
+                        {/* Fila 1: Empresa */}
                         <span className="text-[9px] font-black uppercase tracking-widest leading-none" style={{ color: companyColor }}>
                             {graderRaw}
                         </span>
                         
+                        {/* Fila 2: Nombre */}
                         <span className="text-[11px] md:text-[12px] font-bold text-slate-200 uppercase tracking-tight leading-none truncate w-full pt-0.5">
                             {pokeName}
                         </span>
                         
+                        {/* Fila 3: Set y Serie */}
                         <div className="flex items-center gap-1.5 opacity-60 w-full overflow-hidden">
                              <span className="text-[8px] font-bold text-slate-400 tracking-wider uppercase truncate shrink-0">{s.set_name || 'UNK'}</span>
                              {certNumber && (
@@ -125,18 +123,9 @@ export default function Slab({ slab, onClick, onDelete, className = '', showDele
                         )}
                         <div 
                             className={`flex items-center justify-center w-full h-full rounded-lg border backdrop-blur-md transition-all duration-500 ${isTen ? 'border-yellow-500/40' : 'border-white/10'}`}
-                            style={{ 
-                                background: gradeBoxBackground, 
-                                boxShadow: gradeBoxShadow 
-                            }}
+                            style={{ background: gradeBoxBackground, boxShadow: gradeBoxShadow }}
                         >
-                            <span 
-                                className="text-[20px] md:text-[22px] font-black leading-none drop-shadow-lg" 
-                                style={{ 
-                                    color: isTen ? goldColor : 'white', 
-                                    textShadow: gradeTextShadow 
-                                }}
-                            >
+                            <span className="text-[20px] md:text-[22px] font-black leading-none drop-shadow-lg" style={{ color: isTen ? goldColor : 'white', textShadow: gradeTextShadow }}>
                                 {gradeVal}
                             </span>
                         </div>
@@ -156,16 +145,13 @@ export default function Slab({ slab, onClick, onDelete, className = '', showDele
                 </div>
             </div>
 
-            {/* --- BOTÓN PAPELERA SUTIL --- */}
+            {/* --- BOTÓN PAPELERA (Pequeño, en la esquina y sutil) --- */}
             {showDelete && onDelete && (
                 <button
-                    onClick={(e) => {
-                        e.stopPropagation();
-                        onDelete(e);
-                    }}
-                    className="absolute -top-1 -right-1 z-[60] w-6 h-6 flex items-center justify-center rounded-full bg-slate-900/80 border border-white/10 text-slate-500 shadow-xl backdrop-blur-md transition-all hover:bg-red-500 hover:text-white hover:border-red-400 active:scale-90 active:bg-red-500 active:text-white"
+                    onClick={(e) => { e.stopPropagation(); onDelete(e); }}
+                    className="absolute -top-1.5 -right-1.5 z-[60] w-6 h-6 flex items-center justify-center rounded-full bg-slate-900/80 border border-white/10 text-slate-500 shadow-sm backdrop-blur-md transition-all hover:bg-red-500 hover:text-white hover:border-red-500 active:scale-90"
                 >
-                    <Trash2 size={10} />
+                    <Trash2 size={11} />
                 </button>
             )}
 
