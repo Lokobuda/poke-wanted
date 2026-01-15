@@ -57,23 +57,28 @@ export default function Slab({ slab, onClick, onDelete, className = '', showDele
                     : '0 20px 40px -10px rgba(0,0,0,0.9)'
             }}
         >
-            {/* INYECCIÓN DE ESTILOS GLOBALES PARA ESTE COMPONENTE */}
+            {/* --- INYECCIÓN DE CSS "A LO BRUTO" (PARA QUE NO FALLE) --- */}
             <style dangerouslySetInnerHTML={{__html: `
-                @keyframes champagne-rise {
-                    0% { transform: translateY(120%) scale(0.5); opacity: 0; }
+                @keyframes champagneRise {
+                    0% { bottom: -10px; opacity: 0; transform: scale(0.5); }
                     20% { opacity: 1; }
-                    100% { transform: translateY(-400%) scale(1); opacity: 0; }
+                    50% { opacity: 0.8; }
+                    100% { bottom: 150%; opacity: 0; transform: scale(1.2); }
                 }
-                .champagne-bubble {
+                .champagne-particle {
                     position: absolute;
-                    background-color: #ffd700;
+                    background-color: #FFD700;
                     border-radius: 50%;
-                    opacity: 0;
-                    animation: champagne-rise linear infinite;
+                    width: 2px;
+                    height: 2px;
+                    z-index: 50;
                     pointer-events: none;
+                    animation: champagneRise linear infinite;
+                    box-shadow: 0 0 4px #FFD700;
                 }
                 .animate-spin-slow { animation: spin 8s linear infinite; }
                 @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+                @keyframes bounce-subtle { 0%, 100% { transform: translate(-50%, -8%); } 50% { transform: translate(-50%, 8%); } }
             `}} />
 
             {/* FONDO ANIMADO */}
@@ -89,20 +94,21 @@ export default function Slab({ slab, onClick, onDelete, className = '', showDele
             {/* MARCO CENTRAL */}
             <div className="absolute inset-[2px] bg-[#0a0a0a] rounded-[18px] z-10 flex flex-col overflow-hidden isolate">
                 
-                {/* --- BURBUJAS DE CHAMPAGNE (Z-INDEX 50 PARA QUE PASEN POR ENCIMA DE TODO) --- */}
+                {/* --- GENERADOR DE BURBUJAS --- */}
                 {isTen && (
                     <div className="absolute inset-0 z-50 pointer-events-none overflow-hidden rounded-[18px]">
-                        {[...Array(15)].map((_, i) => (
+                        {[...Array(25)].map((_, i) => (
                             <div 
                                 key={i}
-                                className="champagne-bubble"
+                                className="champagne-particle"
                                 style={{
                                     left: `${Math.random() * 100}%`,
-                                    bottom: '-10px',
-                                    width: `${Math.random() * 2 + 1}px`, // 1px a 3px (muy finas)
-                                    height: `${Math.random() * 2 + 1}px`,
+                                    // Retraso aleatorio para que parezca continuo
                                     animationDelay: `${Math.random() * 5}s`,
-                                    animationDuration: `${Math.random() * 4 + 3}s` // Lentas y majestuosas (3s a 7s)
+                                    // Duración variada (cuanto menos, más rápido sube)
+                                    animationDuration: `${Math.random() * 3 + 2}s`,
+                                    // Variación ligera de tamaño inline (el base es 2px en CSS)
+                                    transform: `scale(${Math.random() + 0.5})`
                                 }}
                             />
                         ))}
@@ -161,11 +167,10 @@ export default function Slab({ slab, onClick, onDelete, className = '', showDele
                 </div>
             </div>
 
-            {/* --- BOTÓN PAPELERA (Más pequeño y transparente) --- */}
+            {/* --- BOTÓN PAPELERA SUTIL --- */}
             {showDelete && onDelete && (
                 <button
                     onClick={(e) => { e.stopPropagation(); onDelete(e); }}
-                    // w-6 h-6, bg-slate-900/50 (más transparente)
                     className="absolute -top-1.5 -right-1.5 z-[60] w-6 h-6 flex items-center justify-center rounded-full bg-slate-900/50 border border-white/10 text-slate-500 shadow-sm backdrop-blur-md transition-all hover:bg-red-500 hover:text-white hover:border-red-400 active:scale-90 active:bg-red-500 active:text-white"
                 >
                     <Trash2 size={10} />
