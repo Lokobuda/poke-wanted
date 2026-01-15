@@ -97,7 +97,7 @@ export default function ProfileHeader({
                      </div>
                   )}
                   <div className="flex flex-col justify-center leading-tight min-w-0">
-                      <span className="text-amber-500 font-black uppercase tracking-widest text-[10px] sm:text-xs whitespace-nowrap drop-shadow-sm">PRO</span>
+                      <span className="text-amber-500 font-black uppercase tracking-widest text-[10px] sm:text-xs whitespace-nowrap drop-shadow-sm">PRO gracias a</span>
                       <span className="text-slate-400 font-bold uppercase tracking-wider text-[9px] sm:text-[10px] truncate block max-w-[150px]">
                          {subscriptionType === 'GYM' && gymData?.name ? gymData.name : 'PREMIUM'}
                       </span>
