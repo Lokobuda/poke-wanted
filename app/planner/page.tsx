@@ -14,7 +14,7 @@ export default function PlannerPage() {
   const [loading, setLoading] = useState(true)
   const [albums, setAlbums] = useState<any[]>([])
   const [isMobile, setIsMobile] = useState(false)
-  const [checkingMobile, setCheckingMobile] = useState(true) // Nuevo estado para evitar parpadeos
+  const [checkingMobile, setCheckingMobile] = useState(true) 
   
   const [selectedAlbum, setSelectedAlbum] = useState<any | null>(null)
   const [selectedLayout, setSelectedLayout] = useState<string | null>(null) 
@@ -23,7 +23,6 @@ export default function PlannerPage() {
   const [loadingCards, setLoadingCards] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
 
-  // Detectar móvil al inicio
   useEffect(() => {
       const checkMobile = () => {
           setIsMobile(window.innerWidth < 1024)
@@ -34,9 +33,8 @@ export default function PlannerPage() {
       return () => window.removeEventListener('resize', checkMobile)
   }, [])
 
-  // Cargar álbumes (Solo si no es móvil, para ahorrar recursos)
   useEffect(() => {
-    if (isMobile) return // No cargamos datos si es móvil
+    if (isMobile) return 
 
     const fetchAlbums = async () => {
       try {
@@ -123,63 +121,45 @@ export default function PlannerPage() {
       c.number.includes(searchQuery)
   )
 
-  // --- VISTA DE BLOQUEO PARA MÓVIL (INMEDIATA Y ABAJO) ---
-  // Si estamos comprobando, mostramos loader o nada. Si es móvil, bloqueamos YA.
   if (checkingMobile) return <div className="min-h-screen bg-slate-950" />
   
+  // --- VISTA DE BLOQUEO (DISEÑO CENTRADO RESTAURADO) ---
   if (isMobile) {
       return (
-        <div className="min-h-screen bg-slate-950 flex flex-col font-sans relative overflow-hidden">
+        <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-8 text-center font-sans">
+            <div className="w-24 h-24 bg-gradient-to-br from-violet-500/10 to-indigo-500/10 rounded-full flex items-center justify-center mb-8 border border-white/5 animate-pulse">
+                <MonitorSmartphone size={40} className="text-violet-400" />
+            </div>
             
-            {/* Fondo decorativo animado para que no sea negro plano */}
-            <div className="absolute inset-0 pointer-events-none">
-                <div className="absolute -top-[20%] -left-[20%] w-[140%] h-[140%] bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-violet-900/20 via-slate-950 to-slate-950 animate-pulse" style={{ animationDuration: '4s' }} />
-                <div className="absolute top-1/4 right-0 w-64 h-64 bg-indigo-500/10 blur-[100px] rounded-full" />
+            <h2 className="text-3xl font-black text-white mb-4 uppercase italic tracking-tight">
+                ¿Quieres organizar tu álbum?
+            </h2>
+            
+            <div className="max-w-xs mx-auto space-y-4">
+                <p className="text-slate-300 text-sm leading-relaxed font-medium">
+                    El diseño de un binder requiere espacio, perspectiva y mucha calma.
+                </p>
+                <p className="text-slate-500 text-xs leading-relaxed">
+                    Hemos creado el <strong>Binder Lab</strong> para disfrutarse en pantalla grande, donde puedes cuidar cada detalle sin limitaciones.
+                </p>
             </div>
 
-            {/* Contenido alineado AL FINAL (bottom) */}
-            <div className="flex-1 flex flex-col justify-end p-8 pb-16 relative z-10">
-                
-                <div className="w-20 h-20 bg-gradient-to-br from-violet-500/20 to-indigo-500/20 rounded-3xl flex items-center justify-center mb-8 border border-white/10 shadow-[0_0_40px_rgba(139,92,246,0.15)]">
-                    <MonitorSmartphone size={36} className="text-violet-400" />
-                </div>
-                
-                <h2 className="text-4xl font-black text-white mb-6 uppercase italic tracking-tighter leading-[0.9]">
-                    ¿Quieres<br/>
-                    <span className="text-transparent bg-clip-text bg-gradient-to-r from-violet-400 to-indigo-400">organizar</span><br/>
-                    tu álbum?
-                </h2>
-                
-                <div className="space-y-4 mb-10">
-                    <p className="text-slate-300 text-base leading-relaxed font-medium">
-                        El diseño de un binder requiere espacio, perspectiva y mucha calma.
-                    </p>
-                    <p className="text-slate-500 text-sm leading-relaxed border-l-2 border-violet-500/30 pl-4">
-                        Hemos creado el <strong>Binder Lab</strong> para disfrutarse en pantalla grande, donde puedes cuidar cada detalle sin limitaciones.
-                    </p>
-                </div>
-
-                <div className="flex flex-col gap-4">
-                    <div className="w-full py-4 rounded-xl bg-white/5 border border-white/10 text-center">
-                        <p className="text-[10px] uppercase tracking-widest text-violet-300 font-bold">
-                            Te esperamos en el ordenador
-                        </p>
-                    </div>
-
-                    <button 
-                        onClick={() => router.back()} 
-                        className="w-full py-4 text-slate-400 hover:text-white text-xs font-bold uppercase tracking-widest transition-colors"
-                    >
-                        Volver al Perfil
-                    </button>
-                </div>
+            <div className="mt-10 p-4 rounded-xl bg-white/5 border border-white/10">
+                <p className="text-[10px] uppercase tracking-widest text-violet-300 font-bold">
+                    Te esperamos en el ordenador
+                </p>
             </div>
+
+            <button 
+                onClick={() => router.back()} 
+                className="mt-8 text-slate-500 hover:text-white underline decoration-slate-700 underline-offset-4 text-xs transition-colors"
+            >
+                Volver atrás
+            </button>
         </div>
       )
   }
 
-  // --- RENDERIZADO DE ESCRITORIO ---
-  
   if (loading) return <div className="min-h-screen bg-slate-950 flex items-center justify-center"><Loader2 className="animate-spin text-violet-500" /></div>
 
   return (

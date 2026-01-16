@@ -9,7 +9,7 @@ import {
   Layers, BarChart3, Trophy, Target, Filter, Search, FolderOpen, 
   ShieldCheck, Package, Lock, 
   Ticket, CreditCard, Zap, ArrowLeft, Copy, CheckSquare, LogOut, Trash2, Camera,
-  PartyPopper, Store, LayoutTemplate // <--- AÑADIDO ICONO PARA EL PLANNER
+  PartyPopper, Store, LayoutTemplate
 } from 'lucide-react'
 import { toPng } from 'html-to-image'
 import download from 'downloadjs'
@@ -27,9 +27,9 @@ const PROFILE_STEPS: TutorialStep[] = [
   { targetId: 'tour-start', title: '¡Hola, coleccionista! 👋', text: 'Veo que acabas de aterrizar. Tu perfil es tu cuartel general. Vamos a echarle un vistazo.', action: '¡Dale caña!', position: 'center' },
   { targetId: 'tour-rank', title: 'Tu Nivel de Prestigio 👑', text: 'Sube de nivel consiguiendo cartas y completando sets para seguir creciendo cada día como coleccionista.', action: 'Entendido', position: 'bottom' },
   { targetId: 'tour-stats', title: 'Tus Estadísticas 📊', text: 'Por aquí está tu progreso global. Cantidad total de cartas, puntuación Hunter y porcentaje total completado.', action: 'Siguiente', position: 'bottom' },
-  { targetId: 'tour-planner', title: 'Binder Lab 🧪', text: '¡NUEVO! Planifica cómo organizar tus carpetas físicas antes de mover las cartas reales.', action: '¡Mola!', position: 'bottom' },
   { targetId: 'tour-projects', title: 'Centro de Proyectos 📁', text: 'Aquí viven tus Álbumes, tu Cámara Acorazada (para cartas gradeadas) y tu Almacén Sellado (para tus productos sellados).', action: '¡Genial!', position: 'top' },
   { targetId: 'tour-wanted', title: 'Wanted List 🎯', text: 'Selecciona las cartas que te faltan para generar un póster de búsqueda y compartirlo.', action: '¡Entendido!', position: 'top' },
+  { targetId: 'tour-planner', title: 'Binder Lab 🧪', text: '¡NUEVO! Planifica cómo organizar tus carpetas físicas antes de mover las cartas reales.', action: '¡Mola!', position: 'bottom' },
   { targetId: 'tour-create-btn', title: 'Tu Primera Misión 🚀', text: 'Haz clic en el botón de crear álbum para empezar tu primera colección.', action: 'Vamos allá', position: 'bottom' }
 ]
 
@@ -105,7 +105,6 @@ function ProfileContent() {
 
   const handleSubscribe = async () => { setIsSubscribing(true); try { const { data: { session } } = await supabase.auth.getSession(); const token = session?.access_token; if (!token) throw new Error('No se encontró sesión activa.'); const response = await fetch('/api/checkout', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` } }); if (!response.ok) { const err = await response.json(); throw new Error(err.error || await response.text()); } const data = await response.json(); if (data.url) window.location.href = data.url; } catch (error: any) { toast.error('Error de pago', { description: error.message }); setIsSubscribing(false); } }
   
-  // --- LÓGICA CORREGIDA: MUESTRA PANTALLA DE ÉXITO ---
   const handleRedeemCode = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!redeemCode) return
@@ -115,17 +114,15 @@ function ProfileContent() {
         const { data: { session } } = await supabase.auth.getSession()
         if (!session) throw new Error("No hay sesión activa")
 
-        // 1. Buscar código y OBTENER LOGO_URL TAMBIÉN
         const { data: gym, error: gymError } = await supabase
             .from('gyms')
-            .select('id, name, logo_url') // IMPORTANTE: Pedir el logo
+            .select('id, name, logo_url') 
             .eq('code', redeemCode.toUpperCase().trim())
             .eq('is_active', true)
             .single()
 
         if (gymError || !gym) throw new Error("El código no es válido o ha expirado.")
 
-        // 2. Actualizar perfil
         const { error: updateError } = await supabase
             .from('profiles')
             .update({ subscription_status: 'GYM', gym_id: gym.id })
@@ -133,9 +130,8 @@ function ProfileContent() {
 
         if (updateError) throw new Error("Error al vincular con la tienda.")
 
-        // 3. CAMBIAR A MODO ÉXITO EN VEZ DE CERRAR
         setSuccessGym({ name: gym.name, logo_url: gym.logo_url })
-        setRedeemMode('SUCCESS') // <--- AQUÍ ESTÁ LA CLAVE
+        setRedeemMode('SUCCESS') 
         await fetchProfileData()
 
     } catch (error: any) {
@@ -279,23 +275,7 @@ function ProfileContent() {
             </div>
         </div>
 
-        {/* --- NUEVO BANNER: BINDER PLANNER (BETA) --- */}
-        <div id="tour-planner" className="mb-12 relative group cursor-pointer" onClick={() => router.push('/planner')}>
-            <div className="absolute inset-0 bg-gradient-to-r from-violet-600/20 to-indigo-600/20 rounded-3xl blur-xl group-hover:blur-2xl transition-all opacity-75" />
-            <div className="relative bg-slate-900/50 border border-white/10 rounded-3xl p-6 flex flex-col md:flex-row items-center gap-6 hover:border-violet-500/50 transition-all">
-                <div className="p-4 bg-violet-500/10 rounded-2xl text-violet-400">
-                    <LayoutTemplate size={32} />
-                </div>
-                <div className="flex-1 text-center md:text-left">
-                    <h3 className="text-xl font-bold text-white mb-1">Binder Lab <span className="text-[10px] bg-violet-600 text-white px-2 py-0.5 rounded-full ml-2 align-middle">BETA</span></h3>
-                    <p className="text-slate-400 text-sm">Planifica la organización física de tus carpetas antes de mover una sola carta.</p>
-                </div>
-                <div className="p-2 bg-white/5 rounded-full text-slate-400 group-hover:bg-white/10 group-hover:text-white transition-colors">
-                    <ChevronRight size={24} />
-                </div>
-            </div>
-        </div>
-
+        {/* ... (Projects Grid) ... */}
         {stats.projectsProgress.length > 0 && (
           <div id="tour-projects" className="mb-12 animate-in slide-in-from-bottom-6 duration-700 delay-200">
              <h3 className="text-lg font-bold text-white mb-6 flex items-center gap-2"><CheckCircle2 size={18} className="text-violet-500"/> Proyectos Activos</h3>
@@ -346,6 +326,7 @@ function ProfileContent() {
           </div>
         )}
 
+        {/* ... (Wanted List / Gym) ... */}
         <div className={`grid grid-cols-1 ${gridLayoutClass} gap-6 mb-12 auto-rows-fr`}>
             {/* WANTED LIST Y SOCIOS - SIN CAMBIOS */}
             <div id="tour-wanted" className="bg-slate-900/40 backdrop-blur-xl rounded-[40px] p-10 border border-white/10 shadow-2xl relative overflow-hidden flex flex-col h-full">
@@ -397,6 +378,24 @@ function ProfileContent() {
                 </div>
             )}
         </div>
+
+        {/* --- BANNER MOVIDO AQUÍ (AL FINAL) --- */}
+        <div id="tour-planner" className="mb-12 relative group cursor-pointer" onClick={() => router.push('/planner')}>
+            <div className="absolute inset-0 bg-gradient-to-r from-violet-600/20 to-indigo-600/20 rounded-3xl blur-xl group-hover:blur-2xl transition-all opacity-75" />
+            <div className="relative bg-slate-900/50 border border-white/10 rounded-3xl p-6 flex flex-col md:flex-row items-center gap-6 hover:border-violet-500/50 transition-all">
+                <div className="p-4 bg-violet-500/10 rounded-2xl text-violet-400">
+                    <LayoutTemplate size={32} />
+                </div>
+                <div className="flex-1 text-center md:text-left">
+                    <h3 className="text-xl font-bold text-white mb-1">Binder Lab <span className="text-[10px] bg-violet-600 text-white px-2 py-0.5 rounded-full ml-2 align-middle">BETA</span></h3>
+                    <p className="text-slate-400 text-sm">Planifica la organización física de tus carpetas antes de mover una sola carta.</p>
+                </div>
+                <div className="p-2 bg-white/5 rounded-full text-slate-400 group-hover:bg-white/10 group-hover:text-white transition-colors">
+                    <ChevronRight size={24} />
+                </div>
+            </div>
+        </div>
+
       </div>
 
       {isSelectorOpen && (
