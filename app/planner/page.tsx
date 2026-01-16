@@ -17,6 +17,7 @@ export default function PlannerPage() {
   const [checkingMobile, setCheckingMobile] = useState(true) 
   
   const [selectedAlbum, setSelectedAlbum] = useState<any | null>(null)
+  // Formatos: '2x2', '3x3', '4x3', '4x4', '5x5'
   const [selectedLayout, setSelectedLayout] = useState<string | null>(null) 
   
   const [albumCards, setAlbumCards] = useState<any[]>([])
@@ -98,20 +99,26 @@ export default function PlannerPage() {
       setSelectedLayout(layout)
   }
 
+  // --- LÓGICA DE GRID (CSS) ---
   const getGridCols = () => {
       switch(selectedLayout) {
           case '2x2': return 'grid-cols-2'
           case '3x3': return 'grid-cols-3'
-          case '3x4': return 'grid-cols-3' 
+          case '4x3': return 'grid-cols-4' // 4 Columnas (Horizontal)
+          case '4x4': return 'grid-cols-4' // 4 Columnas (Cuadrado)
+          case '5x5': return 'grid-cols-5' // 5 Columnas (Coloso)
           default: return 'grid-cols-3'
       }
   }
 
+  // --- LÓGICA DE HUECOS TOTALES POR PÁGINA ---
   const getSlotsPerPage = () => {
       switch(selectedLayout) {
           case '2x2': return 4
           case '3x3': return 9
-          case '3x4': return 12
+          case '4x3': return 12
+          case '4x4': return 16
+          case '5x5': return 25
           default: return 9
       }
   }
@@ -123,7 +130,7 @@ export default function PlannerPage() {
 
   if (checkingMobile) return <div className="min-h-screen bg-slate-950" />
   
-  // --- VISTA DE BLOQUEO (DISEÑO CENTRADO RESTAURADO) ---
+  // --- VISTA DE BLOQUEO (MÓVIL) ---
   if (isMobile) {
       return (
         <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-8 text-center font-sans">
@@ -150,12 +157,7 @@ export default function PlannerPage() {
                 </p>
             </div>
 
-            <button 
-                onClick={() => router.back()} 
-                className="mt-8 text-slate-500 hover:text-white underline decoration-slate-700 underline-offset-4 text-xs transition-colors"
-            >
-                Volver atrás
-            </button>
+            <button onClick={() => router.back()} className="mt-8 text-slate-500 hover:text-white underline decoration-slate-700 underline-offset-4 text-xs transition-colors">Volver atrás</button>
         </div>
       )
   }
@@ -189,7 +191,6 @@ export default function PlannerPage() {
                     )}
                 </div>
             </div>
-            
             {selectedLayout && (
                 <div className="flex items-center gap-3">
                      <span className="text-[10px] text-slate-500 uppercase tracking-widest hidden md:inline-block">Autoguardado activado</span>
@@ -203,7 +204,7 @@ export default function PlannerPage() {
             {/* VISTA 1 & 2: SELECTORES */}
             {!selectedLayout && (
                 <div className="w-full h-full overflow-y-auto p-6 md:p-12">
-                     <div className="max-w-6xl mx-auto pt-10">
+                     <div className="max-w-7xl mx-auto pt-10"> {/* max-w-7xl para que quepan 5 opciones */}
                         <header className="mb-12 text-center md:text-left animate-in slide-in-from-top-4 duration-700">
                             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-violet-500/10 border border-violet-500/20 text-violet-300 text-[10px] font-bold uppercase tracking-widest mb-4">
                                 <LayoutTemplate size={12} />
@@ -252,26 +253,44 @@ export default function PlannerPage() {
                         )}
 
                         {selectedAlbum && (
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 animate-in fade-in slide-in-from-right-8 duration-500 pb-20">
-                                <div onClick={() => handleConfirmLayout('2x2')} className="group cursor-pointer relative bg-slate-900 border border-white/10 rounded-3xl p-8 hover:border-blue-500 hover:bg-slate-800/50 transition-all hover:-translate-y-2 hover:shadow-2xl flex flex-col items-center text-center">
-                                    <div className="w-24 h-40 mb-6 bg-slate-950 rounded-xl border border-white/5 p-2 grid grid-cols-2 gap-2 content-center group-hover:border-blue-500/30 transition-colors">{[...Array(4)].map((_, i) => <div key={i} className="bg-white/5 rounded-md border border-white/5 aspect-[3/4]" />)}</div>
-                                    <h3 className="text-xl font-black text-white mb-1 group-hover:text-blue-400 transition-colors">Portafolio</h3>
-                                    <p className="text-xs font-bold uppercase tracking-widest text-slate-500 mb-4">4 Bolsillos (2x2)</p>
-                                    <p className="text-slate-400 text-sm leading-relaxed">Ideal para colecciones pequeñas, intercambios o carpetas de viaje compactas.</p>
+                            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 animate-in fade-in slide-in-from-right-8 duration-500 pb-20">
+                                
+                                {/* 1. PORTAFOLIO (2x2) */}
+                                <div onClick={() => handleConfirmLayout('2x2')} className="group cursor-pointer relative bg-slate-900 border border-white/10 rounded-3xl p-6 hover:border-blue-500 hover:bg-slate-800/50 transition-all hover:-translate-y-2 hover:shadow-2xl flex flex-col items-center text-center">
+                                    <div className="w-full aspect-square mb-4 bg-slate-950 rounded-xl border border-white/5 p-3 grid grid-cols-2 gap-2 content-center group-hover:border-blue-500/30 transition-colors">{[...Array(4)].map((_, i) => <div key={i} className="bg-white/5 rounded-md border border-white/5 aspect-square" />)}</div>
+                                    <h3 className="text-lg font-black text-white mb-1 group-hover:text-blue-400">Portafolio</h3>
+                                    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">2x2 (4 huecos)</p>
                                 </div>
-                                <div onClick={() => handleConfirmLayout('3x3')} className="group cursor-pointer relative bg-gradient-to-b from-slate-900 to-slate-900 border border-blue-500/30 rounded-3xl p-8 hover:border-blue-400 hover:bg-slate-800/50 transition-all hover:-translate-y-2 hover:shadow-[0_0_30px_rgba(59,130,246,0.15)] flex flex-col items-center text-center ring-1 ring-blue-500/10">
-                                    <div className="absolute top-4 right-4 bg-blue-500 text-white text-[9px] font-bold px-2 py-1 rounded-full uppercase tracking-wider">Popular</div>
-                                    <div className="w-24 h-40 mb-6 bg-slate-950 rounded-xl border border-white/5 p-2 grid grid-cols-3 gap-1.5 content-center group-hover:border-blue-500/30 transition-colors">{[...Array(9)].map((_, i) => <div key={i} className="bg-white/5 rounded-sm border border-white/5 aspect-[3/4]" />)}</div>
-                                    <h3 className="text-xl font-black text-white mb-1 group-hover:text-blue-400 transition-colors">Estándar</h3>
-                                    <p className="text-xs font-bold uppercase tracking-widest text-slate-500 mb-4">9 Bolsillos (3x3)</p>
-                                    <p className="text-slate-400 text-sm leading-relaxed">El formato clásico A4. Perfecto para completar sets y ver evoluciones de 3 en 3.</p>
+
+                                {/* 2. ESTÁNDAR (3x3) */}
+                                <div onClick={() => handleConfirmLayout('3x3')} className="group cursor-pointer relative bg-gradient-to-b from-slate-900 to-slate-900 border border-blue-500/30 rounded-3xl p-6 hover:border-blue-400 hover:bg-slate-800/50 transition-all hover:-translate-y-2 hover:shadow-[0_0_30px_rgba(59,130,246,0.15)] flex flex-col items-center text-center ring-1 ring-blue-500/10">
+                                    <div className="absolute top-3 right-3 bg-blue-500 text-white text-[8px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wider">Top</div>
+                                    <div className="w-full aspect-square mb-4 bg-slate-950 rounded-xl border border-white/5 p-3 grid grid-cols-3 gap-1.5 content-center group-hover:border-blue-500/30 transition-colors">{[...Array(9)].map((_, i) => <div key={i} className="bg-white/5 rounded-sm border border-white/5 aspect-[3/4]" />)}</div>
+                                    <h3 className="text-lg font-black text-white mb-1 group-hover:text-blue-400">Estándar</h3>
+                                    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">3x3 (9 huecos)</p>
                                 </div>
-                                <div onClick={() => handleConfirmLayout('3x4')} className="group cursor-pointer relative bg-slate-900 border border-white/10 rounded-3xl p-8 hover:border-blue-500 hover:bg-slate-800/50 transition-all hover:-translate-y-2 hover:shadow-2xl flex flex-col items-center text-center">
-                                    <div className="w-24 h-40 mb-6 bg-slate-950 rounded-xl border border-white/5 p-2 grid grid-cols-3 gap-1 content-center group-hover:border-blue-500/30 transition-colors">{[...Array(12)].map((_, i) => <div key={i} className="bg-white/5 rounded-[2px] border border-white/5 aspect-[3/4]" />)}</div>
-                                    <h3 className="text-xl font-black text-white mb-1 group-hover:text-blue-400 transition-colors">Playset</h3>
-                                    <p className="text-xs font-bold uppercase tracking-widest text-slate-500 mb-4">12 Bolsillos (3x4)</p>
-                                    <p className="text-slate-400 text-sm leading-relaxed">Para colecciones masivas o jugadores que guardan 4 copias (playset) por fila.</p>
+
+                                {/* 3. PLAYSET (4x3) - HORIZONTAL */}
+                                <div onClick={() => handleConfirmLayout('4x3')} className="group cursor-pointer relative bg-slate-900 border border-white/10 rounded-3xl p-6 hover:border-blue-500 hover:bg-slate-800/50 transition-all hover:-translate-y-2 hover:shadow-2xl flex flex-col items-center text-center">
+                                    <div className="w-full aspect-square mb-4 bg-slate-950 rounded-xl border border-white/5 p-3 grid grid-cols-4 gap-1 content-center group-hover:border-blue-500/30 transition-colors">{[...Array(12)].map((_, i) => <div key={i} className="bg-white/5 rounded-[1px] border border-white/5 aspect-[3/4]" />)}</div>
+                                    <h3 className="text-lg font-black text-white mb-1 group-hover:text-blue-400">Playset</h3>
+                                    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">4x3 (12 huecos)</p>
                                 </div>
+
+                                {/* 4. JUMBO (4x4) */}
+                                <div onClick={() => handleConfirmLayout('4x4')} className="group cursor-pointer relative bg-slate-900 border border-white/10 rounded-3xl p-6 hover:border-blue-500 hover:bg-slate-800/50 transition-all hover:-translate-y-2 hover:shadow-2xl flex flex-col items-center text-center">
+                                    <div className="w-full aspect-square mb-4 bg-slate-950 rounded-xl border border-white/5 p-3 grid grid-cols-4 gap-1 content-center group-hover:border-blue-500/30 transition-colors">{[...Array(16)].map((_, i) => <div key={i} className="bg-white/5 rounded-[1px] border border-white/5 aspect-square" />)}</div>
+                                    <h3 className="text-lg font-black text-white mb-1 group-hover:text-blue-400">Jumbo</h3>
+                                    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">4x4 (16 huecos)</p>
+                                </div>
+
+                                {/* 5. COLOSO (5x5) */}
+                                <div onClick={() => handleConfirmLayout('5x5')} className="group cursor-pointer relative bg-slate-900 border border-white/10 rounded-3xl p-6 hover:border-blue-500 hover:bg-slate-800/50 transition-all hover:-translate-y-2 hover:shadow-2xl flex flex-col items-center text-center">
+                                    <div className="w-full aspect-square mb-4 bg-slate-950 rounded-xl border border-white/5 p-3 grid grid-cols-5 gap-1 content-center group-hover:border-blue-500/30 transition-colors">{[...Array(25)].map((_, i) => <div key={i} className="bg-white/5 rounded-[1px] border border-white/5 aspect-square" />)}</div>
+                                    <h3 className="text-lg font-black text-white mb-1 group-hover:text-blue-400">Coloso</h3>
+                                    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">5x5 (25 huecos)</p>
+                                </div>
+
                             </div>
                         )}
                      </div>
