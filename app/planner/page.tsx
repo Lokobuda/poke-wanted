@@ -7,7 +7,7 @@ import {
     Loader2, LayoutTemplate, Library, Grid3X3, ArrowLeft, 
     CheckCircle2, Search, Image as ImageIcon, Box, MonitorSmartphone,
     ChevronLeft, ChevronRight, Trash2, RotateCcw, X, Lock, Sparkles, Download, 
-    FileText, Printer
+    Printer
 } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -19,7 +19,6 @@ export default function PlannerPage() {
   const [isPro, setIsPro] = useState(false) 
   const [albums, setAlbums] = useState<any[]>([])
   const [isMobile, setIsMobile] = useState(false)
-  const [checkingMobile, setCheckingMobile] = useState(true) 
   
   const [selectedAlbum, setSelectedAlbum] = useState<any | null>(null)
   const [selectedLayout, setSelectedLayout] = useState<string | null>(null) 
@@ -29,7 +28,6 @@ export default function PlannerPage() {
   const [searchQuery, setSearchQuery] = useState('')
 
   // Estados de interacción
-  const [currentPage, setCurrentPage] = useState(0)
   const [currentSpread, setCurrentSpread] = useState(0)
   const [binderPages, setBinderPages] = useState<Record<number, any[]>>({})
   const [draggedItem, setDraggedItem] = useState<any | null>(null)
@@ -40,10 +38,7 @@ export default function PlannerPage() {
 
   // 1. Detectar Móvil
   useEffect(() => {
-      const checkMobile = () => {
-          setIsMobile(window.innerWidth < 1024)
-          setCheckingMobile(false)
-      }
+      const checkMobile = () => setIsMobile(window.innerWidth < 1024)
       checkMobile()
       window.addEventListener('resize', checkMobile)
       return () => window.removeEventListener('resize', checkMobile)
@@ -155,9 +150,10 @@ export default function PlannerPage() {
       setSelectedAlbum(album)
       fetchAlbumCards(album.id)
       
-      if (album.binder_data && album.binder_data.layout && album.binder_data.slots) {
+      // LÓGICA DE CARGA MEJORADA
+      if (album.binder_data && album.binder_data.layout) {
           setSelectedLayout(album.binder_data.layout)
-          setBinderPages(album.binder_data.slots)
+          setBinderPages(album.binder_data.slots || {})
           toast.success('Diseño cargado correctamente')
       } else {
           setSelectedLayout(null)
@@ -272,11 +268,11 @@ export default function PlannerPage() {
       c.number.toString().includes(searchQuery)
   )
 
-  if (checkingMobile || loading) return <div className="min-h-screen bg-slate-950 flex items-center justify-center"><Loader2 className="animate-spin text-violet-500" /></div>
+  if (loading) return <div className="min-h-screen bg-slate-950 flex items-center justify-center"><Loader2 className="animate-spin text-violet-500" /></div>
   
   if (isMobile) {
       return (
-        <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-8 text-center font-sans fixed inset-0 z-[100]">
+        <div className="fixed inset-0 z-[200] bg-slate-950 flex flex-col items-center justify-center p-8 text-center font-sans">
             <div className="w-24 h-24 bg-gradient-to-br from-violet-500/10 to-indigo-500/10 rounded-full flex items-center justify-center mb-8 border border-white/5 animate-pulse"><MonitorSmartphone size={40} className="text-violet-400" /></div>
             <h2 className="text-3xl font-black text-white mb-4 uppercase italic tracking-tight">¿Quieres organizar tu álbum?</h2>
             <div className="max-w-xs mx-auto space-y-4"><p className="text-slate-300 text-sm leading-relaxed font-medium">El diseño de un binder requiere espacio, perspectiva y mucha calma.</p><p className="text-slate-500 text-xs leading-relaxed">Hemos creado el <strong>Binder Lab</strong> para disfrutarse en pantalla grande.</p></div>
@@ -288,7 +284,7 @@ export default function PlannerPage() {
 
   if (!isPro && selectedLayout) {
       return (
-        <div className="fixed inset-0 z-[100] min-h-screen bg-slate-950 flex flex-col items-center justify-center p-8 text-center font-sans">
+        <div className="fixed inset-0 top-20 z-[50] bg-slate-950 flex flex-col items-center justify-center p-8 text-center font-sans">
             <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-amber-500/10 via-slate-950 to-slate-950 pointer-events-none" />
             <div className="relative z-10 max-w-lg bg-slate-900/80 backdrop-blur-xl border border-white/10 p-10 rounded-3xl shadow-2xl flex flex-col items-center">
                 <div className="w-20 h-20 bg-amber-500/20 rounded-full flex items-center justify-center mb-6 text-amber-400"><Lock size={32} /></div>
@@ -302,47 +298,88 @@ export default function PlannerPage() {
   }
 
   return (
-    // CAMBIO CLAVE: h-screen y overflow-hidden para evitar scroll global
-    <div className="h-[calc(100vh-64px)] bg-slate-950 text-white font-sans flex flex-col overflow-hidden">
+    // FIX LAYOUT: fixed desde top-20 (navbar aprox 80px) hasta bottom-0. Sin scroll global.
+    <div className="fixed inset-x-0 bottom-0 top-20 bg-slate-950 text-white font-sans flex flex-col z-40 overflow-hidden">
         
-        {/* ESTILOS DE IMPRESIÓN (OCULTOS EN PANTALLA) */}
+        {/* ESTILOS DE IMPRESIÓN MEJORADOS (VISUAL GRID) */}
         <style jsx global>{`
             @media print {
-                @page { margin: 20mm; }
+                @page { margin: 10mm; size: auto; }
                 body * { visibility: hidden; }
                 #printable-area, #printable-area * { visibility: visible; }
-                #printable-area { position: absolute; left: 0; top: 0; width: 100%; }
+                #printable-area { position: absolute; left: 0; top: 0; width: 100%; background: white; color: black; }
+                .print-page-break { break-after: page; }
                 .no-print { display: none !important; }
             }
         `}</style>
 
-        {/* ÁREA DE IMPRESIÓN (GENERADA OCULTA) */}
-        <div id="printable-area" className="hidden print:block text-black bg-white p-8">
-            <h1 className="text-2xl font-bold mb-4">Guía de Organización: {selectedAlbum?.name}</h1>
-            <p className="mb-6 text-sm">Formato: {selectedLayout} • Generado por PokéBinders</p>
-            {Object.entries(binderPages).map(([pageNum, slots]) => (
-                <div key={pageNum} className="mb-8 break-inside-avoid">
-                    <h3 className="font-bold border-b border-black pb-2 mb-4">Página {parseInt(pageNum) + 1}</h3>
-                    <div className="grid grid-cols-3 gap-4 text-xs">
-                        {slots.map((slot: any, idx: number) => (
-                            <div key={idx} className="border p-2 rounded">
-                                <span className="font-bold mr-2 text-gray-500">#{idx + 1}</span>
-                                {slot?.type === 'CARD' ? (
-                                    <span><strong>{slot.name}</strong> (#{slot.number})</span>
-                                ) : slot?.type === 'EMPTY' ? (
-                                    <span className="italic text-gray-500">Hueco Vacío</span>
-                                ) : (
-                                    <span className="text-gray-300">---</span>
-                                )}
-                            </div>
-                        ))}
+        {/* ÁREA DE IMPRESIÓN (GRID VISUAL) */}
+        <div id="printable-area" className="hidden print:block p-8 bg-white text-black">
+            <h1 className="text-3xl font-bold mb-2 uppercase tracking-tighter">{selectedAlbum?.name}</h1>
+            <p className="mb-8 text-sm text-gray-500 font-mono">Diseño: {selectedLayout} • Generado por PokéBinders</p>
+            
+            {Object.entries(binderPages).map(([pageNum, slots]) => {
+                // Configurar columnas de impresión según el formato
+                let gridClass = 'grid-cols-3' // Default
+                if (selectedLayout === '2x2') gridClass = 'grid-cols-2'
+                if (selectedLayout === '4x3' || selectedLayout === '4x4') gridClass = 'grid-cols-4'
+                if (selectedLayout === '5x5') gridClass = 'grid-cols-5'
+
+                return (
+                    <div key={pageNum} className="mb-8 print-page-break">
+                        <div className="flex items-center gap-4 mb-4 border-b pb-2 border-gray-200">
+                            <span className="bg-black text-white text-xs font-bold px-2 py-1 rounded">PÁGINA {parseInt(pageNum) + 1}</span>
+                        </div>
+                        <div className={`grid ${gridClass} gap-4`}>
+                            {slots.map((slot: any, idx: number) => (
+                                <div key={idx} className="aspect-[63/88] border border-gray-300 rounded flex flex-col items-center justify-center relative overflow-hidden bg-gray-50">
+                                    {slot?.type === 'CARD' ? (
+                                        <>
+                                            <img src={slot.image} className="w-full h-full object-cover" />
+                                            <div className="absolute bottom-0 inset-x-0 bg-white/90 p-1 text-[8px] text-center font-bold border-t border-gray-200 truncate">
+                                                {slot.name} #{slot.number}
+                                            </div>
+                                        </>
+                                    ) : slot?.type === 'EMPTY' ? (
+                                        <div className="flex flex-col items-center justify-center text-gray-400">
+                                            <Box size={20} className="mb-1 opacity-50" />
+                                            <span className="text-[8px] font-bold uppercase">Hueco Vacío</span>
+                                        </div>
+                                    ) : (
+                                        <span className="text-gray-300 text-xs font-mono">#{idx + 1}</span>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
                     </div>
-                </div>
-            ))}
+                )
+            })}
         </div>
 
         {/* CONTENIDO PRINCIPAL */}
-        <div className="flex-1 relative overflow-hidden flex flex-col h-full">
+        
+        {/* HEADER DEL PLANNER */}
+        <div className="h-16 border-b border-white/10 bg-slate-950 flex items-center px-6 justify-between shrink-0 shadow-lg relative z-20">
+            <div className="flex items-center gap-4">
+                <button onClick={() => { if (selectedLayout) setSelectedLayout(null); else if (selectedAlbum) setSelectedAlbum(null); else router.back() }} className="p-2 bg-white/5 rounded-full hover:bg-white/10 transition-colors text-slate-400 hover:text-white"><ArrowLeft size={18} /></button>
+                <div>
+                    <h1 className="text-sm font-bold text-white uppercase tracking-wider">{selectedAlbum ? selectedAlbum.name : 'Binder Lab'}</h1>
+                    {selectedLayout && <p className="text-[10px] text-violet-400 font-mono">FORMATO {selectedLayout} • {albumCards.length} CARTAS</p>}
+                </div>
+            </div>
+            {selectedLayout && (
+                <div className="flex items-center gap-3">
+                     {isSaving ? (
+                         <div className="flex items-center gap-2 text-amber-400 animate-pulse"><Loader2 size={12} className="animate-spin" /><span className="text-[10px] uppercase tracking-widest font-bold">Guardando...</span></div>
+                     ) : (
+                         <div className="flex items-center gap-2 text-slate-500"><CheckCircle2 size={12} /><span className="text-[10px] uppercase tracking-widest">Guardado</span></div>
+                     )}
+                </div>
+            )}
+        </div>
+
+        {/* WORKSPACE */}
+        <div className="flex-1 relative overflow-hidden flex flex-col">
             
             {/* VISTA 1 & 2: SELECTORES */}
             {!selectedLayout && (
@@ -364,7 +401,9 @@ export default function PlannerPage() {
                                 ) : (
                                     albums.map((album) => {
                                         const setLogo = album.set_id ? `https://images.pokemontcg.io/${album.set_id}/logo.png` : null
-                                        const hasDesign = album.binder_data && album.binder_data.slots // CHECK
+                                        // CORRECCIÓN "EN CURSO": Verificamos que realmente haya slots guardados y no estén vacíos
+                                        const hasDesign = album.binder_data?.slots && Object.keys(album.binder_data.slots).length > 0
+                                        
                                         return (
                                             <div key={album.id} onClick={() => handleSelectAlbum(album)} className="group relative bg-slate-900 border border-white/5 rounded-2xl p-6 cursor-pointer hover:border-violet-500/50 hover:bg-slate-800 transition-all hover:-translate-y-1 hover:shadow-xl flex flex-col items-center gap-4 text-center">
                                                 {hasDesign && <div className="absolute top-3 right-3 px-2 py-1 bg-violet-500/20 text-violet-300 text-[9px] font-bold uppercase tracking-widest rounded border border-violet-500/30">En Curso</div>}
@@ -400,7 +439,7 @@ export default function PlannerPage() {
                 <div className="w-full h-full flex flex-row animate-in fade-in zoom-in-[0.99] duration-500 px-6 py-6 overflow-hidden">
                     
                     {/* LIENZO */}
-                    <div className="flex-1 bg-slate-900/50 border border-white/5 rounded-2xl p-4 md:p-8 flex items-center justify-center relative overflow-hidden mr-4">
+                    <div className="flex-1 bg-slate-900/50 border border-white/5 rounded-2xl p-4 md:p-8 flex items-center justify-center relative overflow-hidden mr-4 shadow-inner">
                         
                         {/* BOTONES FLOTANTES */}
                         <div className="absolute top-6 left-6 z-20 flex gap-2">
@@ -410,10 +449,6 @@ export default function PlannerPage() {
                         </div>
 
                         <div className="absolute top-6 right-6 z-20 flex items-center gap-3">
-                            <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-widest backdrop-blur border border-white/5 shadow-lg transition-all ${isSaving ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'}`}>
-                                {isSaving ? <Loader2 size={10} className="animate-spin" /> : <CheckCircle2 size={10} />}
-                                {isSaving ? 'Guardando...' : 'Guardado'}
-                            </div>
                             <button onClick={handlePrintPDF} className="flex items-center gap-2 px-4 py-2 bg-violet-600 hover:bg-violet-500 text-white rounded-full text-xs font-bold uppercase tracking-widest transition-colors shadow-lg shadow-violet-900/20">
                                 <Printer size={14} /> PDF
                             </button>
