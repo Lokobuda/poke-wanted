@@ -43,7 +43,7 @@ export default function PlannerPage() {
       return () => window.removeEventListener('resize', checkMobile)
   }, [])
 
-  // 2. Cargar Datos Iniciales
+  // 2. Cargar Datos
   useEffect(() => {
     if (isMobile) return 
 
@@ -178,7 +178,6 @@ export default function PlannerPage() {
       return [leftPageIndex, rightPageIndex]
   }
 
-  // --- DRAG & DROP ---
   const handleDragStart = (e: React.DragEvent, item: any) => {
       setDraggedItem(item)
       e.dataTransfer.effectAllowed = 'copy'
@@ -266,6 +265,22 @@ export default function PlannerPage() {
       c.number.toString().includes(searchQuery)
   )
 
+  // Función auxiliar para PDF: Generar array continuo de páginas hasta la última usada
+  const getPagesForPrint = () => {
+      const pageIndices = Object.keys(binderPages).map(Number)
+      if (pageIndices.length === 0) return []
+      const maxPage = Math.max(...pageIndices)
+      const pages = []
+      // Iteramos desde 0 hasta la última página usada para no saltarnos ninguna
+      for (let i = 0; i <= maxPage; i++) {
+          pages.push({
+              pageNum: i,
+              slots: binderPages[i] || Array(getSlotsPerPage()).fill(null)
+          })
+      }
+      return pages
+  }
+
   if (loading) return <div className="min-h-screen bg-slate-950 flex items-center justify-center"><Loader2 className="animate-spin text-violet-500" /></div>
   
   if (isMobile) {
@@ -296,15 +311,14 @@ export default function PlannerPage() {
   }
 
   return (
-    // FIX LAYOUT: fixed desde top-20 (navbar aprox 80px) hasta bottom-0.
-    // Sin barra intermedia.
+    // FIX LAYOUT: Sin barra intermedia. top-[64px] para salvar la Navbar global.
     <div className="fixed inset-x-0 bottom-0 top-[64px] bg-slate-950 text-white font-sans flex flex-col z-0">
         
         {/* ESTILOS DE IMPRESIÓN REFORZADOS */}
         <style jsx global>{`
             @media print {
-                @page { size: A4; margin: 10mm; }
-                body { background-color: white !important; }
+                @page { size: A4; margin: 0; }
+                body { margin: 0; padding: 0; background: white !important; -webkit-print-color-adjust: exact; }
                 body * { visibility: hidden; }
                 #printable-area, #printable-area * { visibility: visible; }
                 #printable-area { 
@@ -317,36 +331,36 @@ export default function PlannerPage() {
                     z-index: 9999;
                 }
                 .print-page { 
-                    break-after: page; 
                     page-break-after: always; 
-                    display: block; 
-                    height: 100vh; /* Forzar altura completa para asegurar el salto */
-                    overflow: hidden; /* Evitar desbordes que creen páginas extra */
+                    break-after: page; 
+                    min-height: 100vh;
+                    padding: 15mm;
+                    display: flex;
+                    flex-direction: column;
                 }
-                .print-page:last-child { break-after: auto; page-break-after: auto; }
                 .no-print { display: none !important; }
             }
         `}</style>
 
-        {/* ÁREA DE IMPRESIÓN (GENERADA) */}
+        {/* ÁREA DE IMPRESIÓN (LÓGICA CORREGIDA) */}
         <div id="printable-area" className="hidden print:block bg-white text-black">
-            {Object.entries(binderPages).map(([pageNum, slots]) => {
+            {getPagesForPrint().map(({pageNum, slots}) => {
                 let gridClass = 'grid-cols-3'
                 if (selectedLayout === '2x2') gridClass = 'grid-cols-2'
                 if (selectedLayout === '4x3' || selectedLayout === '4x4') gridClass = 'grid-cols-4'
                 if (selectedLayout === '5x5') gridClass = 'grid-cols-5'
 
                 return (
-                    <div key={pageNum} className="print-page p-4">
-                        <div className="flex justify-between items-end mb-4 border-b-2 border-black pb-2">
+                    <div key={pageNum} className="print-page">
+                        <div className="flex justify-between items-end mb-6 border-b-2 border-black pb-2">
                             <div>
                                 <h1 className="text-xl font-bold uppercase">{selectedAlbum?.name}</h1>
                                 <p className="text-[10px] text-gray-500 font-mono uppercase">PokéBinders • {selectedLayout}</p>
                             </div>
-                            <span className="bg-black text-white text-xs font-bold px-3 py-1 rounded">PÁGINA {parseInt(pageNum) + 1}</span>
+                            <span className="bg-black text-white text-xs font-bold px-3 py-1 rounded">PÁGINA {pageNum + 1}</span>
                         </div>
                         
-                        <div className={`grid ${gridClass} gap-2 w-full`}>
+                        <div className={`grid ${gridClass} gap-3 w-full`}>
                             {slots.map((slot: any, idx: number) => (
                                 <div key={idx} className="aspect-[63/88] border border-gray-300 rounded flex flex-col items-center justify-center relative overflow-hidden bg-gray-50">
                                     {slot?.type === 'CARD' ? (
@@ -451,7 +465,7 @@ export default function PlannerPage() {
                             </button>
                         </div>
 
-                        {/* CONTENEDOR DE PÁGINAS (RESPONSIVE HEIGHT CON MAX-H PARA DEJAR SITIO ABAJO) */}
+                        {/* CONTENEDOR DE PÁGINAS */}
                         <div className="flex gap-4 w-full justify-center items-center h-full max-h-[calc(100%-60px)] transition-all duration-500">
                             {getPagesInCurrentSpread().map((pageIndex) => {
                                 const slots = binderPages[pageIndex] || Array(getSlotsPerPage()).fill(null)
@@ -476,7 +490,7 @@ export default function PlannerPage() {
                             })}
                         </div>
                         
-                        {/* CONTROLES PAGINACIÓN (STATIC BOTTOM, ABSOLUTE POSITIONED RELATIVE TO CANVAS) */}
+                        {/* CONTROLES PAGINACIÓN */}
                         <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-4 bg-slate-950/80 backdrop-blur-md border border-white/10 px-4 py-2 rounded-full shadow-2xl z-30">
                             <button onClick={clearSpread} className="p-2 hover:bg-red-500/20 text-slate-500 hover:text-red-400 rounded-full transition-colors" title="Vaciar vista actual"><RotateCcw size={16}/></button>
                             <div className="h-6 w-[1px] bg-white/10" />
