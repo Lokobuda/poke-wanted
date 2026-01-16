@@ -303,46 +303,53 @@ export default function PlannerPage() {
       )
   }
 
-  // AQUÍ ESTÁ EL CAMBIO CLAVE: USAMOS FRAGMENT <></> PARA SEPARAR EL PDF DEL LAYOUT FIJO
   return (
     <>
-        {/* --- ESTILOS Y ESTRUCTURA DE IMPRESIÓN (FUERA DEL FLUJO NORMAL) --- */}
+        {/* CSS DE IMPRESIÓN REPARADO */}
         <style jsx global>{`
+            /* ESTILOS PARA PANTALLA (NO IMPRESIÓN) */
+            .print-only { display: none; }
+
+            /* ESTILOS PARA IMPRESIÓN */
             @media print {
-                /* Ocultar TODO lo de la web, incluida la navbar de Next.js */
-                body > *:not(#printable-area), nav, header, footer { display: none !important; }
+                /* 1. Ocultar TODO lo de la web usando una clase específica */
+                .no-print, nav, header, footer, .fixed { display: none !important; }
                 
-                /* Resetear body para que fluya natural (adiós fixed/hidden) */
+                /* 2. Mostrar SOLO el contenido de impresión */
+                .print-only { 
+                    display: block !important; 
+                    position: absolute; 
+                    top: 0; 
+                    left: 0; 
+                    width: 100%;
+                    z-index: 99999;
+                }
+
+                /* 3. Resetear Body y HTML para evitar páginas en blanco */
                 html, body {
                     height: auto !important;
-                    overflow: visible !important;
+                    width: 100% !important;
                     margin: 0 !important;
                     padding: 0 !important;
+                    overflow: visible !important;
                     background: white !important;
                 }
 
-                /* Mostrar solo nuestro PDF */
-                #printable-area { 
-                    display: block !important; 
-                    position: absolute; left: 0; top: 0; width: 100%;
-                    background: white; color: black; z-index: 99999;
-                }
-
+                /* 4. Estilos de página */
+                @page { size: A4; margin: 10mm; }
+                
                 .print-page { 
                     break-after: page; 
                     page-break-after: always; 
                     display: block; 
-                    padding: 10mm;
                     margin-bottom: 20px;
-                    /* Escalar un poco para evitar cortes por márgenes de impresora */
-                    transform: scale(0.95);
-                    transform-origin: top center;
                 }
                 .print-page:last-child { break-after: auto; }
             }
         `}</style>
 
-        <div id="printable-area" className="hidden">
+        {/* ÁREA DE IMPRESIÓN (SIN CLASE HIDDEN, CONTROLADA POR CSS) */}
+        <div id="printable-area" className="print-only bg-white text-black">
             {getPagesForPrint().map(({pageNum, slots}) => {
                 let gridClass = 'grid-cols-3'
                 if (selectedLayout === '2x2') gridClass = 'grid-cols-2'
@@ -350,7 +357,7 @@ export default function PlannerPage() {
                 if (selectedLayout === '5x5') gridClass = 'grid-cols-5'
 
                 return (
-                    <div key={pageNum} className="print-page">
+                    <div key={pageNum} className="print-page p-4">
                         <div className="flex justify-between items-end mb-4 border-b-2 border-black pb-2">
                             <div>
                                 <h1 className="text-xl font-bold uppercase">{selectedAlbum?.name}</h1>
@@ -358,6 +365,7 @@ export default function PlannerPage() {
                             </div>
                             <span className="bg-black text-white text-xs font-bold px-3 py-1 rounded">PÁGINA {pageNum + 1}</span>
                         </div>
+                        
                         <div className={`grid ${gridClass} gap-3 w-full`}>
                             {slots.map((slot: any, idx: number) => (
                                 <div key={idx} className="aspect-[63/88] border border-gray-300 rounded flex flex-col items-center justify-center relative overflow-hidden bg-gray-50">
@@ -384,10 +392,11 @@ export default function PlannerPage() {
             })}
         </div>
 
-        {/* --- INTERFAZ DE USUARIO (SE OCULTA AL IMPRIMIR) --- */}
-        <div className="fixed inset-x-0 bottom-0 top-[64px] bg-slate-950 text-white font-sans flex flex-col z-0 print:hidden">
-            <div className="flex-1 relative overflow-hidden flex flex-col">
+        {/* WORKSPACE (INTERFAZ) - SE OCULTA AL IMPRIMIR CON .no-print */}
+        <div className="no-print fixed inset-x-0 bottom-0 top-[64px] bg-slate-950 text-white font-sans flex flex-col z-0">
+            <div className="flex-1 relative overflow-hidden flex flex-col h-full">
                 
+                {/* VISTA 1 & 2: SELECTORES */}
                 {!selectedLayout && (
                     <div className="w-full h-full overflow-y-auto p-6 md:p-12">
                         <div className="max-w-7xl mx-auto">
@@ -438,7 +447,7 @@ export default function PlannerPage() {
                     </div>
                 )}
 
-                {/* VISTA 3: EDITOR */}
+                {/* VISTA 3: EDITOR (PC + PRO) */}
                 {selectedLayout && !isMobile && (
                     <div className="w-full h-full flex flex-row animate-in fade-in zoom-in-[0.99] duration-500 px-6 py-6 overflow-hidden">
                         
