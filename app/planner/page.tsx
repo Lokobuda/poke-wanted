@@ -6,7 +6,8 @@ import { supabase } from '../../lib/supabase'
 import { 
     Loader2, LayoutTemplate, Library, Grid3X3, ArrowLeft, 
     CheckCircle2, Search, Image as ImageIcon, Box, MonitorSmartphone,
-    ChevronLeft, ChevronRight, Trash2, RotateCcw, X, Lock, Sparkles, Download
+    ChevronLeft, ChevronRight, Trash2, RotateCcw, X, Lock, Sparkles, Download, 
+    FileText, Printer
 } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -172,6 +173,10 @@ export default function PlannerPage() {
       setBinderPages({}) 
   }
 
+  const handlePrintPDF = () => {
+      window.print()
+  }
+
   const getPagesInCurrentSpread = () => {
       if (currentSpread === 0) return [0] 
       const leftPageIndex = (currentSpread * 2) - 1
@@ -258,7 +263,7 @@ export default function PlannerPage() {
       switch(selectedLayout) {
           case '4x3': return '252 / 264'
           case '3x4': return '189 / 352'
-          default: return '63 / 88' // Para 2x2, 3x3, 4x4, 5x5
+          default: return '63 / 88' 
       }
   }
 
@@ -272,17 +277,10 @@ export default function PlannerPage() {
   if (isMobile) {
       return (
         <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-8 text-center font-sans fixed inset-0 z-[100]">
-            <div className="w-24 h-24 bg-gradient-to-br from-violet-500/10 to-indigo-500/10 rounded-full flex items-center justify-center mb-8 border border-white/5 animate-pulse">
-                <MonitorSmartphone size={40} className="text-violet-400" />
-            </div>
+            <div className="w-24 h-24 bg-gradient-to-br from-violet-500/10 to-indigo-500/10 rounded-full flex items-center justify-center mb-8 border border-white/5 animate-pulse"><MonitorSmartphone size={40} className="text-violet-400" /></div>
             <h2 className="text-3xl font-black text-white mb-4 uppercase italic tracking-tight">¿Quieres organizar tu álbum?</h2>
-            <div className="max-w-xs mx-auto space-y-4">
-                <p className="text-slate-300 text-sm leading-relaxed font-medium">El diseño de un binder requiere espacio, perspectiva y mucha calma.</p>
-                <p className="text-slate-500 text-xs leading-relaxed">Hemos creado el <strong>Binder Lab</strong> para disfrutarse en pantalla grande.</p>
-            </div>
-            <div className="mt-10 p-4 rounded-xl bg-white/5 border border-white/10">
-                <p className="text-[10px] uppercase tracking-widest text-violet-300 font-bold">Te esperamos en el ordenador</p>
-            </div>
+            <div className="max-w-xs mx-auto space-y-4"><p className="text-slate-300 text-sm leading-relaxed font-medium">El diseño de un binder requiere espacio, perspectiva y mucha calma.</p><p className="text-slate-500 text-xs leading-relaxed">Hemos creado el <strong>Binder Lab</strong> para disfrutarse en pantalla grande.</p></div>
+            <div className="mt-10 p-4 rounded-xl bg-white/5 border border-white/10"><p className="text-[10px] uppercase tracking-widest text-violet-300 font-bold">Te esperamos en el ordenador</p></div>
             <button onClick={() => router.back()} className="mt-8 text-slate-500 hover:text-white underline decoration-slate-700 underline-offset-4 text-xs transition-colors">Volver atrás</button>
         </div>
       )
@@ -304,9 +302,46 @@ export default function PlannerPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white font-sans flex flex-col pt-24 pb-6 overflow-hidden h-screen">
+    // CAMBIO CLAVE: h-screen y overflow-hidden para evitar scroll global
+    <div className="h-[calc(100vh-64px)] bg-slate-950 text-white font-sans flex flex-col overflow-hidden">
         
-        {/* CONTENIDO */}
+        {/* ESTILOS DE IMPRESIÓN (OCULTOS EN PANTALLA) */}
+        <style jsx global>{`
+            @media print {
+                @page { margin: 20mm; }
+                body * { visibility: hidden; }
+                #printable-area, #printable-area * { visibility: visible; }
+                #printable-area { position: absolute; left: 0; top: 0; width: 100%; }
+                .no-print { display: none !important; }
+            }
+        `}</style>
+
+        {/* ÁREA DE IMPRESIÓN (GENERADA OCULTA) */}
+        <div id="printable-area" className="hidden print:block text-black bg-white p-8">
+            <h1 className="text-2xl font-bold mb-4">Guía de Organización: {selectedAlbum?.name}</h1>
+            <p className="mb-6 text-sm">Formato: {selectedLayout} • Generado por PokéBinders</p>
+            {Object.entries(binderPages).map(([pageNum, slots]) => (
+                <div key={pageNum} className="mb-8 break-inside-avoid">
+                    <h3 className="font-bold border-b border-black pb-2 mb-4">Página {parseInt(pageNum) + 1}</h3>
+                    <div className="grid grid-cols-3 gap-4 text-xs">
+                        {slots.map((slot: any, idx: number) => (
+                            <div key={idx} className="border p-2 rounded">
+                                <span className="font-bold mr-2 text-gray-500">#{idx + 1}</span>
+                                {slot?.type === 'CARD' ? (
+                                    <span><strong>{slot.name}</strong> (#{slot.number})</span>
+                                ) : slot?.type === 'EMPTY' ? (
+                                    <span className="italic text-gray-500">Hueco Vacío</span>
+                                ) : (
+                                    <span className="text-gray-300">---</span>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            ))}
+        </div>
+
+        {/* CONTENIDO PRINCIPAL */}
         <div className="flex-1 relative overflow-hidden flex flex-col h-full">
             
             {/* VISTA 1 & 2: SELECTORES */}
@@ -329,8 +364,10 @@ export default function PlannerPage() {
                                 ) : (
                                     albums.map((album) => {
                                         const setLogo = album.set_id ? `https://images.pokemontcg.io/${album.set_id}/logo.png` : null
+                                        const hasDesign = album.binder_data && album.binder_data.slots // CHECK
                                         return (
                                             <div key={album.id} onClick={() => handleSelectAlbum(album)} className="group relative bg-slate-900 border border-white/5 rounded-2xl p-6 cursor-pointer hover:border-violet-500/50 hover:bg-slate-800 transition-all hover:-translate-y-1 hover:shadow-xl flex flex-col items-center gap-4 text-center">
+                                                {hasDesign && <div className="absolute top-3 right-3 px-2 py-1 bg-violet-500/20 text-violet-300 text-[9px] font-bold uppercase tracking-widest rounded border border-violet-500/30">En Curso</div>}
                                                 <div className="w-16 h-16 bg-white/5 rounded-xl flex items-center justify-center p-2 group-hover:scale-110 transition-transform">
                                                     {setLogo ? <img src={setLogo} className="w-full h-full object-contain drop-shadow-md" /> : <Library size={24} className="text-slate-500" />}
                                                 </div>
@@ -360,12 +397,12 @@ export default function PlannerPage() {
 
             {/* VISTA 3: EDITOR (PC + PRO) */}
             {selectedLayout && !isMobile && (
-                <div className="w-full h-full flex flex-row animate-in fade-in zoom-in-[0.99] duration-500 px-6">
+                <div className="w-full h-full flex flex-row animate-in fade-in zoom-in-[0.99] duration-500 px-6 py-6 overflow-hidden">
                     
                     {/* LIENZO */}
                     <div className="flex-1 bg-slate-900/50 border border-white/5 rounded-2xl p-4 md:p-8 flex items-center justify-center relative overflow-hidden mr-4">
                         
-                        {/* BOTONES FLOTANTES DE CONTROL */}
+                        {/* BOTONES FLOTANTES */}
                         <div className="absolute top-6 left-6 z-20 flex gap-2">
                             <button onClick={() => setSelectedLayout(null)} className="flex items-center gap-2 px-4 py-2 bg-slate-950/80 backdrop-blur border border-white/10 rounded-full text-xs font-bold uppercase tracking-widest hover:bg-white/10 transition-colors shadow-lg">
                                 <ArrowLeft size={14} /> Volver
@@ -377,8 +414,8 @@ export default function PlannerPage() {
                                 {isSaving ? <Loader2 size={10} className="animate-spin" /> : <CheckCircle2 size={10} />}
                                 {isSaving ? 'Guardando...' : 'Guardado'}
                             </div>
-                            <button className="flex items-center gap-2 px-4 py-2 bg-violet-600 hover:bg-violet-500 text-white rounded-full text-xs font-bold uppercase tracking-widest transition-colors shadow-lg shadow-violet-900/20" title="Próximamente">
-                                <Download size={14} /> PDF
+                            <button onClick={handlePrintPDF} className="flex items-center gap-2 px-4 py-2 bg-violet-600 hover:bg-violet-500 text-white rounded-full text-xs font-bold uppercase tracking-widest transition-colors shadow-lg shadow-violet-900/20">
+                                <Printer size={14} /> PDF
                             </button>
                         </div>
 
@@ -407,21 +444,13 @@ export default function PlannerPage() {
                             })}
                         </div>
                         
-                        {/* CONTROLES DE PAGINACIÓN */}
+                        {/* CONTROLES PAGINACIÓN */}
                         <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-4 bg-slate-950/80 backdrop-blur-md border border-white/10 px-4 py-2 rounded-full shadow-2xl z-30">
-                            <button onClick={clearSpread} className="p-2 hover:bg-red-500/20 text-slate-500 hover:text-red-400 rounded-full transition-colors" title="Vaciar vista actual">
-                                <RotateCcw size={16}/>
-                            </button>
+                            <button onClick={clearSpread} className="p-2 hover:bg-red-500/20 text-slate-500 hover:text-red-400 rounded-full transition-colors" title="Vaciar vista actual"><RotateCcw size={16}/></button>
                             <div className="h-6 w-[1px] bg-white/10" />
-                            <button onClick={() => setCurrentSpread(Math.max(0, currentSpread - 1))} disabled={currentSpread === 0} className="p-2 bg-white/10 hover:bg-white/20 rounded-full disabled:opacity-30 disabled:hover:bg-white/10">
-                                <ChevronLeft size={20}/>
-                            </button>
-                            <span className="text-xs font-bold text-white w-24 text-center">
-                                {currentSpread === 0 ? "PORTADA" : `PÁG ${currentSpread * 2} - ${currentSpread * 2 + 1}`}
-                            </span>
-                            <button onClick={() => setCurrentSpread(currentSpread + 1)} className="p-2 bg-white/10 hover:bg-white/20 rounded-full">
-                                <ChevronRight size={20}/>
-                            </button>
+                            <button onClick={() => setCurrentSpread(Math.max(0, currentSpread - 1))} disabled={currentSpread === 0} className="p-2 bg-white/10 hover:bg-white/20 rounded-full disabled:opacity-30 disabled:hover:bg-white/10"><ChevronLeft size={20}/></button>
+                            <span className="text-xs font-bold text-white w-24 text-center">{currentSpread === 0 ? "PORTADA" : `PÁG ${currentSpread * 2} - ${currentSpread * 2 + 1}`}</span>
+                            <button onClick={() => setCurrentSpread(currentSpread + 1)} className="p-2 bg-white/10 hover:bg-white/20 rounded-full"><ChevronRight size={20}/></button>
                         </div>
                     </div>
 
