@@ -173,7 +173,8 @@ export default function PlannerPage() {
                         
                         {/* OPCIÓN 1: 4 POCKET (2x2) */}
                         <div onClick={() => handleConfirmLayout('2x2')} className="group cursor-pointer relative bg-slate-900 border border-white/10 rounded-3xl p-8 hover:border-blue-500 hover:bg-slate-800/50 transition-all hover:-translate-y-2 hover:shadow-2xl flex flex-col items-center text-center">
-                            <div className="w-24 h-32 mb-6 bg-slate-950 rounded-xl border border-white/5 p-2 grid grid-cols-2 gap-2 content-center group-hover:border-blue-500/30 transition-colors">
+                            {/* CAMBIO: h-40 para igualar alturas */}
+                            <div className="w-24 h-40 mb-6 bg-slate-950 rounded-xl border border-white/5 p-2 grid grid-cols-2 gap-2 content-center group-hover:border-blue-500/30 transition-colors">
                                 {[...Array(4)].map((_, i) => <div key={i} className="bg-white/5 rounded-md border border-white/5 aspect-[3/4]" />)}
                             </div>
                             <h3 className="text-xl font-black text-white mb-1 group-hover:text-blue-400 transition-colors">Portafolio</h3>
@@ -184,7 +185,8 @@ export default function PlannerPage() {
                         {/* OPCIÓN 2: 9 POCKET (3x3) - ESTÁNDAR */}
                         <div onClick={() => handleConfirmLayout('3x3')} className="group cursor-pointer relative bg-gradient-to-b from-slate-900 to-slate-900 border border-blue-500/30 rounded-3xl p-8 hover:border-blue-400 hover:bg-slate-800/50 transition-all hover:-translate-y-2 hover:shadow-[0_0_30px_rgba(59,130,246,0.15)] flex flex-col items-center text-center ring-1 ring-blue-500/10">
                             <div className="absolute top-4 right-4 bg-blue-500 text-white text-[9px] font-bold px-2 py-1 rounded-full uppercase tracking-wider">Popular</div>
-                            <div className="w-24 h-32 mb-6 bg-slate-950 rounded-xl border border-white/5 p-2 grid grid-cols-3 gap-1.5 group-hover:border-blue-500/30 transition-colors">
+                            {/* CAMBIO: h-40 para igualar alturas */}
+                            <div className="w-24 h-40 mb-6 bg-slate-950 rounded-xl border border-white/5 p-2 grid grid-cols-3 gap-1.5 content-center group-hover:border-blue-500/30 transition-colors">
                                 {[...Array(9)].map((_, i) => <div key={i} className="bg-white/5 rounded-sm border border-white/5 aspect-[3/4]" />)}
                             </div>
                             <h3 className="text-xl font-black text-white mb-1 group-hover:text-blue-400 transition-colors">Estándar</h3>
@@ -194,8 +196,8 @@ export default function PlannerPage() {
 
                         {/* OPCIÓN 3: 12 POCKET (3x4) - VERTICAL */}
                         <div onClick={() => handleConfirmLayout('3x4')} className="group cursor-pointer relative bg-slate-900 border border-white/10 rounded-3xl p-8 hover:border-blue-500 hover:bg-slate-800/50 transition-all hover:-translate-y-2 hover:shadow-2xl flex flex-col items-center text-center">
-                            {/* CAMBIO: w-24 h-32 (Vertical) y grid-cols-3 */}
-                            <div className="w-24 h-32 mb-6 bg-slate-950 rounded-xl border border-white/5 p-2 grid grid-cols-3 gap-1 group-hover:border-blue-500/30 transition-colors">
+                            {/* CAMBIO: h-40 para que quepa el playset */}
+                            <div className="w-24 h-40 mb-6 bg-slate-950 rounded-xl border border-white/5 p-2 grid grid-cols-3 gap-1 content-center group-hover:border-blue-500/30 transition-colors">
                                 {[...Array(12)].map((_, i) => <div key={i} className="bg-white/5 rounded-[2px] border border-white/5 aspect-[3/4]" />)}
                             </div>
                             <h3 className="text-xl font-black text-white mb-1 group-hover:text-blue-400 transition-colors">Playset</h3>
