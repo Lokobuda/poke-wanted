@@ -6,8 +6,7 @@ import { supabase } from '../../lib/supabase'
 import { 
     Loader2, LayoutTemplate, Library, Grid3X3, ArrowLeft, 
     CheckCircle2, Search, Image as ImageIcon, Box, MonitorSmartphone,
-    ChevronLeft, ChevronRight, Trash2, RotateCcw, X, Lock, Sparkles, Download, 
-    Printer
+    ChevronLeft, ChevronRight, Trash2, RotateCcw, X, Lock, Sparkles, Printer
 } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -150,7 +149,6 @@ export default function PlannerPage() {
       setSelectedAlbum(album)
       fetchAlbumCards(album.id)
       
-      // LÓGICA DE CARGA MEJORADA
       if (album.binder_data && album.binder_data.layout) {
           setSelectedLayout(album.binder_data.layout)
           setBinderPages(album.binder_data.slots || {})
@@ -298,55 +296,60 @@ export default function PlannerPage() {
   }
 
   return (
-    // FIX LAYOUT: fixed desde top-20 (navbar aprox 80px) hasta bottom-0. Sin scroll global.
-    <div className="fixed inset-x-0 bottom-0 top-20 bg-slate-950 text-white font-sans flex flex-col z-40 overflow-hidden">
+    // FIX LAYOUT: Sin header interno. Ocupa todo el alto menos la navbar global (~64px).
+    <div className="fixed inset-x-0 bottom-0 top-[64px] bg-slate-950 text-white font-sans flex flex-col z-0">
         
-        {/* ESTILOS DE IMPRESIÓN MEJORADOS (VISUAL GRID) */}
+        {/* ESTILOS DE IMPRESIÓN CORREGIDOS (RESET COMPLETO DEL BODY PARA EVITAR CORTES) */}
         <style jsx global>{`
             @media print {
-                @page { margin: 10mm; size: auto; }
+                @page { size: A4; margin: 10mm; }
+                body { overflow: visible !important; position: static !important; }
                 body * { visibility: hidden; }
                 #printable-area, #printable-area * { visibility: visible; }
-                #printable-area { position: absolute; left: 0; top: 0; width: 100%; background: white; color: black; }
-                .print-page-break { break-after: page; }
+                #printable-area { position: absolute; left: 0; top: 0; width: 100%; background: white; color: black; z-index: 9999; }
+                /* Forzamos salto de página limpio */
+                .print-page { break-after: page; page-break-after: always; display: block; height: 100vh; }
                 .no-print { display: none !important; }
             }
         `}</style>
 
-        {/* ÁREA DE IMPRESIÓN (GRID VISUAL) */}
-        <div id="printable-area" className="hidden print:block p-8 bg-white text-black">
-            <h1 className="text-3xl font-bold mb-2 uppercase tracking-tighter">{selectedAlbum?.name}</h1>
-            <p className="mb-8 text-sm text-gray-500 font-mono">Diseño: {selectedLayout} • Generado por PokéBinders</p>
-            
+        {/* ÁREA DE IMPRESIÓN (GENERADA) */}
+        <div id="printable-area" className="hidden print:block bg-white text-black">
             {Object.entries(binderPages).map(([pageNum, slots]) => {
-                // Configurar columnas de impresión según el formato
-                let gridClass = 'grid-cols-3' // Default
+                // Configurar columnas de impresión
+                let gridClass = 'grid-cols-3'
                 if (selectedLayout === '2x2') gridClass = 'grid-cols-2'
                 if (selectedLayout === '4x3' || selectedLayout === '4x4') gridClass = 'grid-cols-4'
                 if (selectedLayout === '5x5') gridClass = 'grid-cols-5'
 
                 return (
-                    <div key={pageNum} className="mb-8 print-page-break">
-                        <div className="flex items-center gap-4 mb-4 border-b pb-2 border-gray-200">
-                            <span className="bg-black text-white text-xs font-bold px-2 py-1 rounded">PÁGINA {parseInt(pageNum) + 1}</span>
+                    <div key={pageNum} className="print-page p-8 flex flex-col h-full">
+                        <div className="flex justify-between items-end mb-6 border-b-2 border-black pb-4">
+                            <div>
+                                <h1 className="text-2xl font-bold uppercase tracking-tight mb-1">{selectedAlbum?.name}</h1>
+                                <p className="text-xs text-gray-500 font-mono uppercase">Generado por PokéBinders • {selectedLayout}</p>
+                            </div>
+                            <span className="bg-black text-white text-sm font-bold px-3 py-1 rounded">PÁGINA {parseInt(pageNum) + 1}</span>
                         </div>
-                        <div className={`grid ${gridClass} gap-4`}>
+                        
+                        <div className={`grid ${gridClass} gap-4 w-full`}>
                             {slots.map((slot: any, idx: number) => (
                                 <div key={idx} className="aspect-[63/88] border border-gray-300 rounded flex flex-col items-center justify-center relative overflow-hidden bg-gray-50">
                                     {slot?.type === 'CARD' ? (
                                         <>
                                             <img src={slot.image} className="w-full h-full object-cover" />
-                                            <div className="absolute bottom-0 inset-x-0 bg-white/90 p-1 text-[8px] text-center font-bold border-t border-gray-200 truncate">
-                                                {slot.name} #{slot.number}
+                                            <div className="absolute bottom-0 inset-x-0 bg-white/90 p-1 text-[8px] text-center font-bold border-t border-gray-200 truncate leading-tight">
+                                                <span className="block text-[6px] text-gray-500">#{slot.number}</span>
+                                                {slot.name}
                                             </div>
                                         </>
                                     ) : slot?.type === 'EMPTY' ? (
-                                        <div className="flex flex-col items-center justify-center text-gray-400">
-                                            <Box size={20} className="mb-1 opacity-50" />
-                                            <span className="text-[8px] font-bold uppercase">Hueco Vacío</span>
+                                        <div className="flex flex-col items-center justify-center text-gray-300">
+                                            <Box size={24} className="mb-1 opacity-30" />
+                                            <span className="text-[7px] font-bold uppercase tracking-widest">Vacío</span>
                                         </div>
                                     ) : (
-                                        <span className="text-gray-300 text-xs font-mono">#{idx + 1}</span>
+                                        <span className="text-gray-200 text-sm font-black opacity-20">#{idx + 1}</span>
                                     )}
                                 </div>
                             ))}
@@ -354,28 +357,6 @@ export default function PlannerPage() {
                     </div>
                 )
             })}
-        </div>
-
-        {/* CONTENIDO PRINCIPAL */}
-        
-        {/* HEADER DEL PLANNER */}
-        <div className="h-16 border-b border-white/10 bg-slate-950 flex items-center px-6 justify-between shrink-0 shadow-lg relative z-20">
-            <div className="flex items-center gap-4">
-                <button onClick={() => { if (selectedLayout) setSelectedLayout(null); else if (selectedAlbum) setSelectedAlbum(null); else router.back() }} className="p-2 bg-white/5 rounded-full hover:bg-white/10 transition-colors text-slate-400 hover:text-white"><ArrowLeft size={18} /></button>
-                <div>
-                    <h1 className="text-sm font-bold text-white uppercase tracking-wider">{selectedAlbum ? selectedAlbum.name : 'Binder Lab'}</h1>
-                    {selectedLayout && <p className="text-[10px] text-violet-400 font-mono">FORMATO {selectedLayout} • {albumCards.length} CARTAS</p>}
-                </div>
-            </div>
-            {selectedLayout && (
-                <div className="flex items-center gap-3">
-                     {isSaving ? (
-                         <div className="flex items-center gap-2 text-amber-400 animate-pulse"><Loader2 size={12} className="animate-spin" /><span className="text-[10px] uppercase tracking-widest font-bold">Guardando...</span></div>
-                     ) : (
-                         <div className="flex items-center gap-2 text-slate-500"><CheckCircle2 size={12} /><span className="text-[10px] uppercase tracking-widest">Guardado</span></div>
-                     )}
-                </div>
-            )}
         </div>
 
         {/* WORKSPACE */}
@@ -401,9 +382,7 @@ export default function PlannerPage() {
                                 ) : (
                                     albums.map((album) => {
                                         const setLogo = album.set_id ? `https://images.pokemontcg.io/${album.set_id}/logo.png` : null
-                                        // CORRECCIÓN "EN CURSO": Verificamos que realmente haya slots guardados y no estén vacíos
                                         const hasDesign = album.binder_data?.slots && Object.keys(album.binder_data.slots).length > 0
-                                        
                                         return (
                                             <div key={album.id} onClick={() => handleSelectAlbum(album)} className="group relative bg-slate-900 border border-white/5 rounded-2xl p-6 cursor-pointer hover:border-violet-500/50 hover:bg-slate-800 transition-all hover:-translate-y-1 hover:shadow-xl flex flex-col items-center gap-4 text-center">
                                                 {hasDesign && <div className="absolute top-3 right-3 px-2 py-1 bg-violet-500/20 text-violet-300 text-[9px] font-bold uppercase tracking-widest rounded border border-violet-500/30">En Curso</div>}
@@ -441,7 +420,7 @@ export default function PlannerPage() {
                     {/* LIENZO */}
                     <div className="flex-1 bg-slate-900/50 border border-white/5 rounded-2xl p-4 md:p-8 flex items-center justify-center relative overflow-hidden mr-4 shadow-inner">
                         
-                        {/* BOTONES FLOTANTES */}
+                        {/* BOTONES FLOTANTES DE CONTROL (DENTRO DEL LIENZO) */}
                         <div className="absolute top-6 left-6 z-20 flex gap-2">
                             <button onClick={() => setSelectedLayout(null)} className="flex items-center gap-2 px-4 py-2 bg-slate-950/80 backdrop-blur border border-white/10 rounded-full text-xs font-bold uppercase tracking-widest hover:bg-white/10 transition-colors shadow-lg">
                                 <ArrowLeft size={14} /> Volver
@@ -449,6 +428,10 @@ export default function PlannerPage() {
                         </div>
 
                         <div className="absolute top-6 right-6 z-20 flex items-center gap-3">
+                            <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-widest backdrop-blur border border-white/5 shadow-lg transition-all ${isSaving ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'}`}>
+                                {isSaving ? <Loader2 size={10} className="animate-spin" /> : <CheckCircle2 size={10} />}
+                                {isSaving ? 'Guardando...' : 'Guardado'}
+                            </div>
                             <button onClick={handlePrintPDF} className="flex items-center gap-2 px-4 py-2 bg-violet-600 hover:bg-violet-500 text-white rounded-full text-xs font-bold uppercase tracking-widest transition-colors shadow-lg shadow-violet-900/20">
                                 <Printer size={14} /> PDF
                             </button>
