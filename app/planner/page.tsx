@@ -305,15 +305,15 @@ export default function PlannerPage() {
 
   return (
     <>
-        {/* CSS DE IMPRESIÓN REPARADO */}
+        {/* CSS DE IMPRESIÓN REPARADO: AHORA OCULTA TAMBIÉN LAS NOTIFICACIONES (SONNER) */}
         <style jsx global>{`
             /* ESTILOS PARA PANTALLA (NO IMPRESIÓN) */
             .print-only { display: none; }
 
             /* ESTILOS PARA IMPRESIÓN */
             @media print {
-                /* 1. Ocultar TODO lo de la web usando una clase específica */
-                .no-print, nav, header, footer, .fixed { display: none !important; }
+                /* 1. Ocultar TODO: web, navbar, footer, Y EL TOAST DE SONNER ([data-sonner-toaster]) */
+                .no-print, nav, header, footer, .fixed, [data-sonner-toaster] { display: none !important; }
                 
                 /* 2. Mostrar SOLO el contenido de impresión */
                 .print-only { 
@@ -325,7 +325,7 @@ export default function PlannerPage() {
                     z-index: 99999;
                 }
 
-                /* 3. Resetear Body y HTML para evitar páginas en blanco */
+                /* 3. Resetear Body y HTML */
                 html, body {
                     height: auto !important;
                     width: 100% !important;
@@ -348,7 +348,7 @@ export default function PlannerPage() {
             }
         `}</style>
 
-        {/* ÁREA DE IMPRESIÓN (SIN CLASE HIDDEN, CONTROLADA POR CSS) */}
+        {/* ÁREA DE IMPRESIÓN */}
         <div id="printable-area" className="print-only bg-white text-black">
             {getPagesForPrint().map(({pageNum, slots}) => {
                 let gridClass = 'grid-cols-3'
@@ -392,11 +392,10 @@ export default function PlannerPage() {
             })}
         </div>
 
-        {/* WORKSPACE (INTERFAZ) - SE OCULTA AL IMPRIMIR CON .no-print */}
+        {/* WORKSPACE (INTERFAZ) */}
         <div className="no-print fixed inset-x-0 bottom-0 top-[64px] bg-slate-950 text-white font-sans flex flex-col z-0">
             <div className="flex-1 relative overflow-hidden flex flex-col h-full">
                 
-                {/* VISTA 1 & 2: SELECTORES */}
                 {!selectedLayout && (
                     <div className="w-full h-full overflow-y-auto p-6 md:p-12">
                         <div className="max-w-7xl mx-auto">
