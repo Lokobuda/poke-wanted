@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { supabase } from '../../lib/supabase'
 import { 
     Loader2, LayoutTemplate, Library, Grid3X3, ArrowLeft, 
-    Grid2X2, RectangleHorizontal, CheckCircle2 
+    CheckCircle2 
 } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -46,13 +46,22 @@ export default function PlannerPage() {
     fetchAlbums()
   }, [])
 
-  // Función al seleccionar álbum (comprueba si ya tenía diseño guardado)
+  // Función al seleccionar álbum
   const handleSelectAlbum = (album: any) => {
       setSelectedAlbum(album)
-      // Si el álbum ya tiene un layout guardado en base de datos, lo cargamos
-      if (album.binder_data && album.binder_data.layout) {
+      
+      // CORRECCIÓN: NO autoseleccionamos el layout aunque venga de base de datos.
+      // Queremos que el usuario elija siempre o vea las opciones.
+      // Si quisieras cargar lo guardado, tendrías que diferenciar si es "default" o "guardado real".
+      // Por ahora, para que veas las tarjetas, comentamos esto:
+      
+      /* if (album.binder_data && album.binder_data.layout) {
           setSelectedLayout(album.binder_data.layout)
-      }
+      } 
+      */
+      
+      // Forzamos que siempre empiece sin layout seleccionado para ver el paso 2
+      setSelectedLayout(null)
   }
 
   // Función para guardar el formato y (en el futuro) empezar
@@ -111,7 +120,8 @@ export default function PlannerPage() {
                         Elige tu <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-400">Carpeta</span>
                     </h1>
                 ) : (
-                    <h1 className="text-4xl md:text-5xl font-black text-white italic tracking-tighter uppercase mb-4">
+                    // CORRECCIÓN VISUAL: Quitamos 'italic' y 'tracking-tighter' para que la Ñ se vea bien
+                    <h1 className="text-4xl md:text-5xl font-black text-white uppercase mb-4">
                         Modo <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-teal-400">Diseño</span>
                     </h1>
                 )}
