@@ -1,22 +1,21 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '../../lib/supabase'
 import { 
     Loader2, LayoutTemplate, Library, Grid3X3, ArrowLeft, 
     CheckCircle2, Search, Image as ImageIcon, Box, MonitorSmartphone,
-    ChevronLeft, ChevronRight, Trash2, RotateCcw, X, Lock, Sparkles
+    ChevronLeft, ChevronRight, Trash2, RotateCcw, X, Lock, Sparkles, Download
 } from 'lucide-react'
 import { toast } from 'sonner'
 
-// URL de la trasera oficial de Pokémon
 const CARD_BACK_URL = "https://tcg.pokemon.com/assets/img/global/tcg-card-back-2x.jpg"
 
 export default function PlannerPage() {
   const router = useRouter()
   const [loading, setLoading] = useState(true)
-  const [isPro, setIsPro] = useState(false) // Nuevo estado para control de acceso
+  const [isPro, setIsPro] = useState(false) 
   const [albums, setAlbums] = useState<any[]>([])
   const [isMobile, setIsMobile] = useState(false)
   const [checkingMobile, setCheckingMobile] = useState(true) 
@@ -28,13 +27,15 @@ export default function PlannerPage() {
   const [loadingCards, setLoadingCards] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
 
-  // Estados de interacción (AHORA USAMOS SPREADS/VISTAS)
-  // currentSpread 0 = Página 1
-  // currentSpread 1 = Páginas 2 y 3
-  // currentSpread 2 = Páginas 4 y 5
+  // Estados de interacción
+  const [currentPage, setCurrentPage] = useState(0)
   const [currentSpread, setCurrentSpread] = useState(0)
   const [binderPages, setBinderPages] = useState<Record<number, any[]>>({})
   const [draggedItem, setDraggedItem] = useState<any | null>(null)
+  
+  // Estado de guardado
+  const [isSaving, setIsSaving] = useState(false)
+  const isFirstLoad = useRef(true)
 
   // 1. Detectar Móvil
   useEffect(() => {
@@ -47,7 +48,7 @@ export default function PlannerPage() {
       return () => window.removeEventListener('resize', checkMobile)
   }, [])
 
-  // 2. Cargar Datos y Verificar PRO
+  // 2. Cargar Datos Iniciales
   useEffect(() => {
     if (isMobile) return 
 
@@ -59,17 +60,10 @@ export default function PlannerPage() {
             return
         }
 
-        // A. Verificar si es PRO o GYM
-        const { data: profile } = await supabase
-            .from('profiles')
-            .select('subscription_status')
-            .eq('id', session.user.id)
-            .single()
-        
+        const { data: profile } = await supabase.from('profiles').select('subscription_status').eq('id', session.user.id).single()
         const hasAccess = profile?.subscription_status === 'PRO' || profile?.subscription_status === 'GYM'
         setIsPro(hasAccess)
 
-        // B. Cargar Álbumes (aunque no sea PRO, los cargamos para el fondo, pero bloquearemos después)
         const { data, error } = await supabase
             .from('albums')
             .select('id, name, set_id, created_at, binder_data')
@@ -86,6 +80,41 @@ export default function PlannerPage() {
     }
     fetchData()
   }, [isMobile])
+
+  // 3. AUTOGUARDADO
+  useEffect(() => {
+      if (isFirstLoad.current || !selectedAlbum || !selectedLayout) {
+          isFirstLoad.current = false
+          return
+      }
+
+      const saveToDb = async () => {
+          setIsSaving(true)
+          try {
+              const { error } = await supabase
+                  .from('albums')
+                  .update({
+                      binder_data: {
+                          layout: selectedLayout,
+                          slots: binderPages,
+                          last_edited: new Date().toISOString()
+                      }
+                  })
+                  .eq('id', selectedAlbum.id)
+
+              if (error) throw error
+          } catch (err) {
+              console.error("Error guardando:", err)
+          } finally {
+              setTimeout(() => setIsSaving(false), 500)
+          }
+      }
+
+      const timeoutId = setTimeout(saveToDb, 2000)
+      return () => clearTimeout(timeoutId)
+
+  }, [binderPages, selectedLayout, selectedAlbum])
+
 
   const fetchAlbumCards = async (albumId: string) => {
       setLoadingCards(true)
@@ -123,23 +152,28 @@ export default function PlannerPage() {
 
   const handleSelectAlbum = (album: any) => {
       setSelectedAlbum(album)
-      setSelectedLayout(null)
       fetchAlbumCards(album.id)
-      setBinderPages({})
+      
+      if (album.binder_data && album.binder_data.layout && album.binder_data.slots) {
+          setSelectedLayout(album.binder_data.layout)
+          setBinderPages(album.binder_data.slots)
+          toast.success('Diseño cargado correctamente')
+      } else {
+          setSelectedLayout(null)
+          setBinderPages({})
+      }
       setCurrentSpread(0)
+      isFirstLoad.current = true 
   }
 
   const handleConfirmLayout = async (layout: string) => {
       setSelectedLayout(layout)
       setCurrentSpread(0)
-      setBinderPages({})
+      setBinderPages({}) 
   }
 
-  // --- LÓGICA DE DOBLE PÁGINA ---
   const getPagesInCurrentSpread = () => {
-      if (currentSpread === 0) return [0] // Solo página 1 (Portada interior)
-      // Spread 1 -> Páginas 1 y 2 (índices del array, visualmente pág 2 y 3)
-      // Usamos índices base 0 para el array binderPages
+      if (currentSpread === 0) return [0] 
       const leftPageIndex = (currentSpread * 2) - 1
       const rightPageIndex = (currentSpread * 2)
       return [leftPageIndex, rightPageIndex]
@@ -168,10 +202,8 @@ export default function PlannerPage() {
           if (!newPages[pageIndex]) {
               newPages[pageIndex] = Array(slotsPerPage).fill(null)
           }
-          
           const updatedPage = [...(newPages[pageIndex] || Array(slotsPerPage).fill(null))]
           updatedPage[slotIndex] = { ...draggedItem, uid: Math.random() }
-          
           newPages[pageIndex] = updatedPage
           return newPages
       })
@@ -182,7 +214,6 @@ export default function PlannerPage() {
       setBinderPages(prev => {
           const newPages = { ...prev }
           if (!newPages[pageIndex]) return prev
-          
           const updatedPage = [...newPages[pageIndex]]
           updatedPage[slotIndex] = null
           newPages[pageIndex] = updatedPage
@@ -195,15 +226,12 @@ export default function PlannerPage() {
           const pages = getPagesInCurrentSpread()
           setBinderPages(prev => {
               const newPages = { ...prev }
-              pages.forEach(p => {
-                  newPages[p] = Array(getSlotsPerPage()).fill(null)
-              })
+              pages.forEach(p => { newPages[p] = Array(getSlotsPerPage()).fill(null) })
               return newPages
           })
       }
   }
 
-  // --- UTILS DE FORMATO ---
   const getGridCols = () => {
       switch(selectedLayout) {
           case '2x2': return 'grid-cols-2'
@@ -228,13 +256,9 @@ export default function PlannerPage() {
 
   const getPageAspectRatio = () => {
       switch(selectedLayout) {
-          case '2x2': return '63 / 88'
-          case '3x3': return '63 / 88'
           case '4x3': return '252 / 264'
           case '3x4': return '189 / 352'
-          case '4x4': return '63 / 88'
-          case '5x5': return '63 / 88'
-          default: return '63 / 88'
+          default: return '63 / 88' // Para 2x2, 3x3, 4x4, 5x5
       }
   }
 
@@ -243,21 +267,18 @@ export default function PlannerPage() {
       c.number.toString().includes(searchQuery)
   )
 
-  // --- RENDERIZADO ---
-
   if (checkingMobile || loading) return <div className="min-h-screen bg-slate-950 flex items-center justify-center"><Loader2 className="animate-spin text-violet-500" /></div>
   
-  // A. BLOQUEO MÓVIL
   if (isMobile) {
       return (
-        <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-8 text-center font-sans">
+        <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-8 text-center font-sans fixed inset-0 z-[100]">
             <div className="w-24 h-24 bg-gradient-to-br from-violet-500/10 to-indigo-500/10 rounded-full flex items-center justify-center mb-8 border border-white/5 animate-pulse">
                 <MonitorSmartphone size={40} className="text-violet-400" />
             </div>
             <h2 className="text-3xl font-black text-white mb-4 uppercase italic tracking-tight">¿Quieres organizar tu álbum?</h2>
             <div className="max-w-xs mx-auto space-y-4">
                 <p className="text-slate-300 text-sm leading-relaxed font-medium">El diseño de un binder requiere espacio, perspectiva y mucha calma.</p>
-                <p className="text-slate-500 text-xs leading-relaxed">Hemos creado el <strong>Binder Lab</strong> para disfrutarse en pantalla grande, donde puedes cuidar cada detalle sin limitaciones.</p>
+                <p className="text-slate-500 text-xs leading-relaxed">Hemos creado el <strong>Binder Lab</strong> para disfrutarse en pantalla grande.</p>
             </div>
             <div className="mt-10 p-4 rounded-xl bg-white/5 border border-white/10">
                 <p className="text-[10px] uppercase tracking-widest text-violet-300 font-bold">Te esperamos en el ordenador</p>
@@ -267,53 +288,31 @@ export default function PlannerPage() {
       )
   }
 
-  // B. BLOQUEO NO-PRO (SI ESTÁ EN PC PERO NO ES PRO)
-  // Dejamos ver la selección de álbum para "picar" el interés, bloqueamos al intentar entrar.
   if (!isPro && selectedLayout) {
       return (
-        <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-8 text-center font-sans relative overflow-hidden">
+        <div className="fixed inset-0 z-[100] min-h-screen bg-slate-950 flex flex-col items-center justify-center p-8 text-center font-sans">
             <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-amber-500/10 via-slate-950 to-slate-950 pointer-events-none" />
             <div className="relative z-10 max-w-lg bg-slate-900/80 backdrop-blur-xl border border-white/10 p-10 rounded-3xl shadow-2xl flex flex-col items-center">
-                <div className="w-20 h-20 bg-amber-500/20 rounded-full flex items-center justify-center mb-6 text-amber-400">
-                    <Lock size={32} />
-                </div>
+                <div className="w-20 h-20 bg-amber-500/20 rounded-full flex items-center justify-center mb-6 text-amber-400"><Lock size={32} /></div>
                 <h2 className="text-3xl font-black text-white italic uppercase mb-2">Función <span className="text-amber-500">PRO</span></h2>
-                <p className="text-slate-400 mb-8 text-sm leading-relaxed">
-                    El <strong>Binder Lab</strong> es una herramienta avanzada para coleccionistas que se toman en serio la organización. Desbloquea esta y otras herramientas premium.
-                </p>
-                <button onClick={() => router.push('/profile?open_pro=true')} className="bg-gradient-to-r from-amber-500 to-orange-500 text-black font-black uppercase tracking-widest py-4 px-8 rounded-xl hover:scale-105 transition-transform shadow-lg flex items-center gap-2">
-                    <Sparkles size={18} /> Desbloquear Ahora
-                </button>
-                <button onClick={() => setSelectedLayout(null)} className="mt-6 text-slate-600 hover:text-white text-xs font-bold uppercase tracking-widest transition-colors">
-                    Volver
-                </button>
+                <p className="text-slate-400 mb-8 text-sm leading-relaxed">El <strong>Binder Lab</strong> es una herramienta avanzada. Desbloquea esta y otras herramientas premium.</p>
+                <button onClick={() => router.push('/profile?open_pro=true')} className="bg-gradient-to-r from-amber-500 to-orange-500 text-black font-black uppercase tracking-widest py-4 px-8 rounded-xl hover:scale-105 transition-transform shadow-lg flex items-center gap-2"><Sparkles size={18} /> Desbloquear Ahora</button>
+                <button onClick={() => setSelectedLayout(null)} className="mt-6 text-slate-600 hover:text-white text-xs font-bold uppercase tracking-widest transition-colors">Volver</button>
             </div>
         </div>
       )
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white font-sans flex flex-col h-screen overflow-hidden">
+    <div className="min-h-screen bg-slate-950 text-white font-sans flex flex-col pt-24 pb-6 overflow-hidden h-screen">
         
-        {/* HEADER */}
-        <div className="h-16 border-b border-white/10 bg-slate-950 flex items-center px-6 justify-between z-50 shrink-0">
-            <div className="flex items-center gap-4">
-                <button onClick={() => { if (selectedLayout) setSelectedLayout(null); else if (selectedAlbum) setSelectedAlbum(null); else router.back() }} className="p-2 bg-white/5 rounded-full hover:bg-white/10 transition-colors text-slate-400 hover:text-white"><ArrowLeft size={18} /></button>
-                <div>
-                    <h1 className="text-sm font-bold text-white uppercase tracking-wider">{selectedAlbum ? selectedAlbum.name : 'Binder Lab'}</h1>
-                    {selectedLayout && <p className="text-[10px] text-violet-400 font-mono">FORMATO {selectedLayout} • {albumCards.length} CARTAS</p>}
-                </div>
-            </div>
-            {selectedLayout && <div className="flex items-center gap-3"><span className="text-[10px] text-slate-500 uppercase tracking-widest hidden md:inline-block">Autoguardado activado</span></div>}
-        </div>
-
         {/* CONTENIDO */}
-        <div className="flex-1 relative overflow-hidden flex">
+        <div className="flex-1 relative overflow-hidden flex flex-col h-full">
             
-            {/* VISTA 1 & 2: SELECTORES (Si no estamos en modo diseño) */}
+            {/* VISTA 1 & 2: SELECTORES */}
             {!selectedLayout && (
                 <div className="w-full h-full overflow-y-auto p-6 md:p-12">
-                     <div className="max-w-7xl mx-auto pt-10">
+                     <div className="max-w-7xl mx-auto">
                         <header className="mb-12 text-center md:text-left animate-in slide-in-from-top-4 duration-700">
                             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-violet-500/10 border border-violet-500/20 text-violet-300 text-[10px] font-bold uppercase tracking-widest mb-4">
                                 <LayoutTemplate size={12} />
@@ -359,64 +358,45 @@ export default function PlannerPage() {
                 </div>
             )}
 
-            {/* VISTA 3: EL EDITOR (PC ONLY + PRO) */}
+            {/* VISTA 3: EDITOR (PC + PRO) */}
             {selectedLayout && !isMobile && (
-                <div className="w-full h-full flex flex-row animate-in fade-in zoom-in-[0.99] duration-500">
+                <div className="w-full h-full flex flex-row animate-in fade-in zoom-in-[0.99] duration-500 px-6">
                     
                     {/* LIENZO */}
-                    <div className="flex-1 bg-slate-900/50 p-4 md:p-8 flex items-center justify-center relative overflow-hidden">
+                    <div className="flex-1 bg-slate-900/50 border border-white/5 rounded-2xl p-4 md:p-8 flex items-center justify-center relative overflow-hidden mr-4">
                         
-                        {/* CONTENEDOR DE PÁGINAS (FLEXIBLE) */}
-                        <div className="flex gap-4 h-full max-h-full transition-all duration-500 items-center justify-center w-full">
-                            
-                            {getPagesInCurrentSpread().map((pageIndex) => {
-                                // Obtenemos los slots de esta página específica
-                                const slots = binderPages[pageIndex] || Array(getSlotsPerPage()).fill(null)
-                                
-                                return (
-                                    <div 
-                                        key={pageIndex}
-                                        className="relative h-full max-h-full bg-slate-950 rounded-lg border border-white/10 shadow-2xl p-4 flex flex-col transition-all duration-300 ease-in-out"
-                                        style={{ aspectRatio: getPageAspectRatio() }}
-                                    >
-                                        {/* HEADER DE PÁGINA */}
-                                        <div className="absolute -top-10 left-0 right-0 flex justify-center">
-                                            <div className="bg-slate-800 text-slate-400 text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-widest border border-white/5 shadow-sm">
-                                                Página {pageIndex + 1}
-                                            </div>
-                                        </div>
+                        {/* BOTONES FLOTANTES DE CONTROL */}
+                        <div className="absolute top-6 left-6 z-20 flex gap-2">
+                            <button onClick={() => setSelectedLayout(null)} className="flex items-center gap-2 px-4 py-2 bg-slate-950/80 backdrop-blur border border-white/10 rounded-full text-xs font-bold uppercase tracking-widest hover:bg-white/10 transition-colors shadow-lg">
+                                <ArrowLeft size={14} /> Volver
+                            </button>
+                        </div>
 
-                                        {/* GRID DE LA PÁGINA */}
+                        <div className="absolute top-6 right-6 z-20 flex items-center gap-3">
+                            <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-widest backdrop-blur border border-white/5 shadow-lg transition-all ${isSaving ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'}`}>
+                                {isSaving ? <Loader2 size={10} className="animate-spin" /> : <CheckCircle2 size={10} />}
+                                {isSaving ? 'Guardando...' : 'Guardado'}
+                            </div>
+                            <button className="flex items-center gap-2 px-4 py-2 bg-violet-600 hover:bg-violet-500 text-white rounded-full text-xs font-bold uppercase tracking-widest transition-colors shadow-lg shadow-violet-900/20" title="Próximamente">
+                                <Download size={14} /> PDF
+                            </button>
+                        </div>
+
+                        {/* CONTENEDOR DE PÁGINAS */}
+                        <div className="flex gap-4 h-full max-h-full transition-all duration-500 items-center justify-center w-full">
+                            {getPagesInCurrentSpread().map((pageIndex) => {
+                                const slots = binderPages[pageIndex] || Array(getSlotsPerPage()).fill(null)
+                                return (
+                                    <div key={pageIndex} className="relative h-full max-h-full bg-slate-950 rounded-lg border border-white/10 shadow-2xl p-4 flex flex-col transition-all duration-300 ease-in-out" style={{ aspectRatio: getPageAspectRatio() }}>
+                                        <div className="absolute -top-10 left-0 right-0 flex justify-center"><div className="bg-slate-800 text-slate-400 text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-widest border border-white/5 shadow-sm">Página {pageIndex + 1}</div></div>
                                         <div className={`grid ${getGridCols()} gap-2 w-full h-full content-start`}>
                                             {slots.map((slotItem: any, slotIdx: number) => {
                                                 const isEmptySlot = slotItem?.type === 'EMPTY'
                                                 const isCard = slotItem?.type === 'CARD'
-
                                                 return (
-                                                    <div 
-                                                        key={`${pageIndex}-${slotIdx}`} 
-                                                        onDragOver={handleDragOver}
-                                                        onDrop={(e) => handleDrop(e, pageIndex, slotIdx)}
-                                                        className={`relative w-full aspect-[63/88] rounded border transition-all flex items-center justify-center group overflow-hidden ${
-                                                            slotItem ? 'border-white/20 bg-slate-900' : 'border-dashed border-white/10 bg-white/5 hover:bg-white/10 hover:border-violet-500/50'
-                                                        }`}
-                                                    >
-                                                        {isCard && (
-                                                            <div className="w-full h-full relative group/card">
-                                                                <img src={slotItem.image} className="w-full h-full object-cover" />
-                                                                <div className="absolute inset-0 bg-black/60 opacity-0 group-hover/card:opacity-100 transition-opacity flex items-center justify-center z-10">
-                                                                    <button onClick={() => clearSlot(pageIndex, slotIdx)} className="p-2 bg-red-500 text-white rounded-full hover:scale-110 transition-transform"><Trash2 size={16} /></button>
-                                                                </div>
-                                                            </div>
-                                                        )}
-                                                        {isEmptySlot && (
-                                                            <div className="w-full h-full relative group/empty">
-                                                                <img src={CARD_BACK_URL} className="w-full h-full object-cover opacity-60 grayscale-[30%]" />
-                                                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/empty:opacity-100 transition-opacity flex items-center justify-center z-10">
-                                                                    <button onClick={() => clearSlot(pageIndex, slotIdx)} className="p-2 bg-white/20 backdrop-blur-md text-white rounded-full hover:bg-red-500 hover:scale-110 transition-all"><X size={16} /></button>
-                                                                </div>
-                                                            </div>
-                                                        )}
+                                                    <div key={`${pageIndex}-${slotIdx}`} onDragOver={handleDragOver} onDrop={(e) => handleDrop(e, pageIndex, slotIdx)} className={`relative w-full aspect-[63/88] rounded border transition-all flex items-center justify-center group overflow-hidden ${slotItem ? 'border-white/20 bg-slate-900' : 'border-dashed border-white/10 bg-white/5 hover:bg-white/10 hover:border-violet-500/50'}`}>
+                                                        {isCard && (<div className="w-full h-full relative group/card"><img src={slotItem.image} className="w-full h-full object-cover" /><div className="absolute inset-0 bg-black/60 opacity-0 group-hover/card:opacity-100 transition-opacity flex items-center justify-center z-10"><button onClick={() => clearSlot(pageIndex, slotIdx)} className="p-2 bg-red-500 text-white rounded-full hover:scale-110 transition-transform"><Trash2 size={16} /></button></div></div>)}
+                                                        {isEmptySlot && (<div className="w-full h-full relative group/empty"><img src={CARD_BACK_URL} className="w-full h-full object-cover opacity-60 grayscale-[30%]" /><div className="absolute inset-0 bg-black/40 opacity-0 group-hover/empty:opacity-100 transition-opacity flex items-center justify-center z-10"><button onClick={() => clearSlot(pageIndex, slotIdx)} className="p-2 bg-white/20 backdrop-blur-md text-white rounded-full hover:bg-red-500 hover:scale-110 transition-all"><X size={16} /></button></div></div>)}
                                                         {!slotItem && (<span className="text-slate-600 text-xs font-mono group-hover:text-violet-400 pointer-events-none">{(pageIndex * getSlotsPerPage()) + slotIdx + 1}</span>)}
                                                     </div>
                                                 )
@@ -426,43 +406,39 @@ export default function PlannerPage() {
                                 )
                             })}
                         </div>
-
-                        {/* CONTROLES DE PAGINACIÓN (FLOTANTES ABAJO) */}
+                        
+                        {/* CONTROLES DE PAGINACIÓN */}
                         <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-4 bg-slate-950/80 backdrop-blur-md border border-white/10 px-4 py-2 rounded-full shadow-2xl z-30">
-                            <button onClick={clearSpread} className="p-2 hover:bg-red-500/20 text-slate-500 hover:text-red-400 rounded-full transition-colors" title="Vaciar vista actual"><RotateCcw size={16}/></button>
+                            <button onClick={clearSpread} className="p-2 hover:bg-red-500/20 text-slate-500 hover:text-red-400 rounded-full transition-colors" title="Vaciar vista actual">
+                                <RotateCcw size={16}/>
+                            </button>
                             <div className="h-6 w-[1px] bg-white/10" />
-                            <button onClick={() => setCurrentSpread(Math.max(0, currentSpread - 1))} disabled={currentSpread === 0} className="p-2 bg-white/10 hover:bg-white/20 rounded-full disabled:opacity-30 disabled:hover:bg-white/10"><ChevronLeft size={20}/></button>
+                            <button onClick={() => setCurrentSpread(Math.max(0, currentSpread - 1))} disabled={currentSpread === 0} className="p-2 bg-white/10 hover:bg-white/20 rounded-full disabled:opacity-30 disabled:hover:bg-white/10">
+                                <ChevronLeft size={20}/>
+                            </button>
                             <span className="text-xs font-bold text-white w-24 text-center">
                                 {currentSpread === 0 ? "PORTADA" : `PÁG ${currentSpread * 2} - ${currentSpread * 2 + 1}`}
                             </span>
-                            <button onClick={() => setCurrentSpread(currentSpread + 1)} className="p-2 bg-white/10 hover:bg-white/20 rounded-full"><ChevronRight size={20}/></button>
+                            <button onClick={() => setCurrentSpread(currentSpread + 1)} className="p-2 bg-white/10 hover:bg-white/20 rounded-full">
+                                <ChevronRight size={20}/>
+                            </button>
                         </div>
-
                     </div>
 
                     {/* DOCK */}
-                    <div className="w-80 h-full bg-slate-950 border-l border-white/10 flex flex-col shadow-2xl z-20">
-                        <div className="p-4 border-b border-white/10 bg-slate-900/50">
-                            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">Tus Cartas ({albumCards.length})</h3>
-                            <div className="relative"><Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={14} /><input type="text" placeholder="Buscar..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full bg-slate-900 border border-white/10 rounded-lg py-2 pl-9 pr-3 text-xs text-white focus:outline-none focus:border-violet-500 transition-all"/></div>
-                        </div>
+                    <div className="w-80 h-full bg-slate-950 border border-white/10 rounded-2xl flex flex-col shadow-2xl z-20 overflow-hidden">
+                        <div className="p-4 border-b border-white/10 bg-slate-900/50"><h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">Tus Cartas ({albumCards.length})</h3><div className="relative"><Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={14} /><input type="text" placeholder="Buscar..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full bg-slate-900 border border-white/10 rounded-lg py-2 pl-9 pr-3 text-xs text-white focus:outline-none focus:border-violet-500 transition-all"/></div></div>
                         <div className="flex-1 overflow-y-auto p-4 space-y-2 scrollbar-thin scrollbar-thumb-slate-700">
                             {loadingCards ? (<div className="flex justify-center py-10"><Loader2 className="animate-spin text-slate-500" /></div>) : filteredCards.length === 0 ? (<div className="text-center py-10 text-slate-500 text-xs">No hay cartas.</div>) : (
                                 filteredCards.map((card) => (
                                     <div key={card.id} draggable onDragStart={(e) => handleDragStart(e, card)} className="group flex items-center gap-3 p-2 rounded-lg hover:bg-white/5 cursor-grab active:cursor-grabbing border border-transparent hover:border-white/10 transition-all select-none">
-                                        <div className="w-10 h-14 bg-slate-900 rounded overflow-hidden relative shadow-sm shrink-0">
-                                            {card.image ? <img src={card.image} className="w-full h-full object-cover pointer-events-none" /> : <div className="w-full h-full flex items-center justify-center"><ImageIcon size={14} className="text-slate-600"/></div>}
-                                        </div>
+                                        <div className="w-10 h-14 bg-slate-900 rounded overflow-hidden relative shadow-sm shrink-0">{card.image ? <img src={card.image} className="w-full h-full object-cover pointer-events-none" /> : <div className="w-full h-full flex items-center justify-center"><ImageIcon size={14} className="text-slate-600"/></div>}</div>
                                         <div className="min-w-0 pointer-events-none"><p className="text-xs font-bold text-white truncate group-hover:text-violet-300 transition-colors">{card.name}</p><p className="text-[10px] text-slate-500 font-mono">#{card.number}</p></div>
                                     </div>
                                 ))
                             )}
                         </div>
-                        <div className="p-3 border-t border-white/10 bg-slate-900/50">
-                            <div draggable onDragStart={(e) => handleDragStart(e, { type: 'EMPTY', image: CARD_BACK_URL })} className="w-full py-3 bg-white/5 rounded text-[10px] font-bold uppercase tracking-wider hover:bg-white/10 text-slate-400 flex items-center justify-center gap-2 cursor-grab active:cursor-grabbing border border-dashed border-white/10 hover:border-violet-500/50 transition-all">
-                                <Box size={14} /> Arrastrar Hueco Vacío
-                            </div>
-                        </div>
+                        <div className="p-3 border-t border-white/10 bg-slate-900/50"><div draggable onDragStart={(e) => handleDragStart(e, { type: 'EMPTY', image: CARD_BACK_URL })} className="w-full py-3 bg-white/5 rounded text-[10px] font-bold uppercase tracking-wider hover:bg-white/10 text-slate-400 flex items-center justify-center gap-2 cursor-grab active:cursor-grabbing border border-dashed border-white/10 hover:border-violet-500/50 transition-all"><Box size={14} /> Arrastrar Hueco Vacío</div></div>
                     </div>
                 </div>
             )}
