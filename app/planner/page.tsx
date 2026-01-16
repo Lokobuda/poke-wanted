@@ -16,7 +16,7 @@ export default function PlannerPage() {
   
   // Estados de navegación del planificador
   const [selectedAlbum, setSelectedAlbum] = useState<any | null>(null)
-  const [selectedLayout, setSelectedLayout] = useState<string | null>(null) // '2x2', '3x3', '4x3'
+  const [selectedLayout, setSelectedLayout] = useState<string | null>(null) 
 
   // Cargar los álbumes del usuario
   useEffect(() => {
@@ -28,7 +28,6 @@ export default function PlannerPage() {
             return
         }
 
-        // Traemos también 'binder_data' por si ya guardó un diseño antes
         const { data, error } = await supabase
             .from('albums')
             .select('id, name, set_id, created_at, binder_data')
@@ -49,26 +48,12 @@ export default function PlannerPage() {
   // Función al seleccionar álbum
   const handleSelectAlbum = (album: any) => {
       setSelectedAlbum(album)
-      
-      // CORRECCIÓN: NO autoseleccionamos el layout aunque venga de base de datos.
-      // Queremos que el usuario elija siempre o vea las opciones.
-      // Si quisieras cargar lo guardado, tendrías que diferenciar si es "default" o "guardado real".
-      // Por ahora, para que veas las tarjetas, comentamos esto:
-      
-      /* if (album.binder_data && album.binder_data.layout) {
-          setSelectedLayout(album.binder_data.layout)
-      } 
-      */
-      
-      // Forzamos que siempre empiece sin layout seleccionado para ver el paso 2
       setSelectedLayout(null)
   }
 
-  // Función para guardar el formato y (en el futuro) empezar
+  // Función para guardar el formato
   const handleConfirmLayout = async (layout: string) => {
       setSelectedLayout(layout)
-      // Aquí más adelante guardaremos la preferencia en la BD
-      // o iniciaremos el canvas
   }
 
   // --- RENDERIZADO ---
@@ -82,7 +67,7 @@ export default function PlannerPage() {
   return (
     <div className="min-h-screen bg-slate-950 text-white p-6 pb-24 md:p-12 relative overflow-hidden font-sans">
         
-        {/* Botón Volver (con lógica inteligente) */}
+        {/* Botón Volver */}
         <button 
             onClick={() => {
                 if (selectedLayout) setSelectedLayout(null)
@@ -110,7 +95,6 @@ export default function PlannerPage() {
                     <span>Binder Lab Beta</span>
                 </div>
                 
-                {/* Título cambia según el paso */}
                 {!selectedAlbum ? (
                     <h1 className="text-4xl md:text-5xl font-black text-white italic tracking-tighter uppercase mb-4">
                         Organiza tu <span className="text-transparent bg-clip-text bg-gradient-to-r from-violet-400 to-indigo-400">Álbum</span>
@@ -120,7 +104,6 @@ export default function PlannerPage() {
                         Elige tu <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-400">Carpeta</span>
                     </h1>
                 ) : (
-                    // CORRECCIÓN VISUAL: Quitamos 'italic' y 'tracking-tighter' para que la Ñ se vea bien
                     <h1 className="text-4xl md:text-5xl font-black text-white uppercase mb-4">
                         Modo <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-teal-400">Diseño</span>
                     </h1>
@@ -190,8 +173,8 @@ export default function PlannerPage() {
                         
                         {/* OPCIÓN 1: 4 POCKET (2x2) */}
                         <div onClick={() => handleConfirmLayout('2x2')} className="group cursor-pointer relative bg-slate-900 border border-white/10 rounded-3xl p-8 hover:border-blue-500 hover:bg-slate-800/50 transition-all hover:-translate-y-2 hover:shadow-2xl flex flex-col items-center text-center">
-                            <div className="w-24 h-24 mb-6 bg-slate-950 rounded-xl border border-white/5 p-2 grid grid-cols-2 gap-2 group-hover:border-blue-500/30 transition-colors">
-                                {[...Array(4)].map((_, i) => <div key={i} className="bg-white/5 rounded-md border border-white/5" />)}
+                            <div className="w-24 h-32 mb-6 bg-slate-950 rounded-xl border border-white/5 p-2 grid grid-cols-2 gap-2 content-center group-hover:border-blue-500/30 transition-colors">
+                                {[...Array(4)].map((_, i) => <div key={i} className="bg-white/5 rounded-md border border-white/5 aspect-[3/4]" />)}
                             </div>
                             <h3 className="text-xl font-black text-white mb-1 group-hover:text-blue-400 transition-colors">Portafolio</h3>
                             <p className="text-xs font-bold uppercase tracking-widest text-slate-500 mb-4">4 Bolsillos (2x2)</p>
@@ -202,20 +185,21 @@ export default function PlannerPage() {
                         <div onClick={() => handleConfirmLayout('3x3')} className="group cursor-pointer relative bg-gradient-to-b from-slate-900 to-slate-900 border border-blue-500/30 rounded-3xl p-8 hover:border-blue-400 hover:bg-slate-800/50 transition-all hover:-translate-y-2 hover:shadow-[0_0_30px_rgba(59,130,246,0.15)] flex flex-col items-center text-center ring-1 ring-blue-500/10">
                             <div className="absolute top-4 right-4 bg-blue-500 text-white text-[9px] font-bold px-2 py-1 rounded-full uppercase tracking-wider">Popular</div>
                             <div className="w-24 h-32 mb-6 bg-slate-950 rounded-xl border border-white/5 p-2 grid grid-cols-3 gap-1.5 group-hover:border-blue-500/30 transition-colors">
-                                {[...Array(9)].map((_, i) => <div key={i} className="bg-white/5 rounded-sm border border-white/5" />)}
+                                {[...Array(9)].map((_, i) => <div key={i} className="bg-white/5 rounded-sm border border-white/5 aspect-[3/4]" />)}
                             </div>
                             <h3 className="text-xl font-black text-white mb-1 group-hover:text-blue-400 transition-colors">Estándar</h3>
                             <p className="text-xs font-bold uppercase tracking-widest text-slate-500 mb-4">9 Bolsillos (3x3)</p>
                             <p className="text-slate-400 text-sm leading-relaxed">El formato clásico A4. Perfecto para completar sets y ver evoluciones de 3 en 3.</p>
                         </div>
 
-                        {/* OPCIÓN 3: 12 POCKET (4x3) */}
-                        <div onClick={() => handleConfirmLayout('4x3')} className="group cursor-pointer relative bg-slate-900 border border-white/10 rounded-3xl p-8 hover:border-blue-500 hover:bg-slate-800/50 transition-all hover:-translate-y-2 hover:shadow-2xl flex flex-col items-center text-center">
-                            <div className="w-32 h-24 mb-6 bg-slate-950 rounded-xl border border-white/5 p-2 grid grid-cols-4 gap-1.5 group-hover:border-blue-500/30 transition-colors">
-                                {[...Array(12)].map((_, i) => <div key={i} className="bg-white/5 rounded-sm border border-white/5" />)}
+                        {/* OPCIÓN 3: 12 POCKET (3x4) - VERTICAL */}
+                        <div onClick={() => handleConfirmLayout('3x4')} className="group cursor-pointer relative bg-slate-900 border border-white/10 rounded-3xl p-8 hover:border-blue-500 hover:bg-slate-800/50 transition-all hover:-translate-y-2 hover:shadow-2xl flex flex-col items-center text-center">
+                            {/* CAMBIO: w-24 h-32 (Vertical) y grid-cols-3 */}
+                            <div className="w-24 h-32 mb-6 bg-slate-950 rounded-xl border border-white/5 p-2 grid grid-cols-3 gap-1 group-hover:border-blue-500/30 transition-colors">
+                                {[...Array(12)].map((_, i) => <div key={i} className="bg-white/5 rounded-[2px] border border-white/5 aspect-[3/4]" />)}
                             </div>
                             <h3 className="text-xl font-black text-white mb-1 group-hover:text-blue-400 transition-colors">Playset</h3>
-                            <p className="text-xs font-bold uppercase tracking-widest text-slate-500 mb-4">12 Bolsillos (4x3)</p>
+                            <p className="text-xs font-bold uppercase tracking-widest text-slate-500 mb-4">12 Bolsillos (3x4)</p>
                             <p className="text-slate-400 text-sm leading-relaxed">Para colecciones masivas o jugadores que guardan 4 copias (playset) por fila.</p>
                         </div>
 
