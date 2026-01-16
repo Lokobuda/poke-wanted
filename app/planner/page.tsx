@@ -6,7 +6,7 @@ import { supabase } from '../../lib/supabase'
 import { 
     Loader2, LayoutTemplate, Library, Grid3X3, ArrowLeft, 
     CheckCircle2, Search, Image as ImageIcon, Box, MonitorSmartphone,
-    ChevronLeft, ChevronRight, Trash2, RotateCcw, X // <--- Aseguramos que X está importada
+    ChevronLeft, ChevronRight, Trash2, RotateCcw, X 
 } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -173,7 +173,7 @@ export default function PlannerPage() {
       }
   }
 
-  // --- UTILS ---
+  // --- UTILS DE FORMATO ---
   const getGridCols = () => {
       switch(selectedLayout) {
           case '2x2': return 'grid-cols-2'
@@ -193,6 +193,20 @@ export default function PlannerPage() {
           case '4x4': return 16
           case '5x5': return 25
           default: return 9
+      }
+  }
+
+  // NUEVO: Calcula la proporción de la HOJA según el contenido
+  // Esto asegura que la página gris se adapte al formato elegido
+  const getPageAspectRatio = () => {
+      switch(selectedLayout) {
+          case '2x2': return '2 / 2.5'   // Portafolio (ligeramente vertical)
+          case '3x3': return '210 / 297' // A4 Estándar
+          case '4x3': return '4 / 3.2'   // Playset Horizontal (más ancha)
+          case '3x4': return '3 / 4.2'   // Playset Vertical (muy alta)
+          case '4x4': return '1 / 1'     // Cuadrada
+          case '5x5': return '1 / 1'     // Cuadrada
+          default: return '210 / 297'
       }
   }
 
@@ -263,7 +277,7 @@ export default function PlannerPage() {
         {/* CONTENIDO */}
         <div className="flex-1 relative overflow-hidden flex">
             
-            {/* SELECTORES */}
+            {/* SELECTORES (SIN CAMBIOS, SOLO OCULTOS CUANDO HAY LAYOUT) */}
             {!selectedLayout && (
                 <div className="w-full h-full overflow-y-auto p-6 md:p-12">
                      <div className="max-w-7xl mx-auto pt-10">
@@ -323,7 +337,11 @@ export default function PlannerPage() {
                     
                     {/* LIENZO */}
                     <div className="flex-1 bg-slate-900/50 p-8 flex items-center justify-center relative overflow-hidden">
-                        <div className="relative h-full max-h-full aspect-[210/297] bg-slate-950 rounded-lg border border-white/10 shadow-2xl p-4 md:p-6 flex flex-col">
+                        {/* CONTENEDOR DE LA PÁGINA (ASPECT RATIO DINÁMICO) */}
+                        <div 
+                            className="relative h-full max-h-full bg-slate-950 rounded-lg border border-white/10 shadow-2xl p-4 md:p-6 flex flex-col transition-all duration-300 ease-in-out"
+                            style={{ aspectRatio: getPageAspectRatio() }}
+                        >
                             <div className="flex justify-between items-center mb-4">
                                 <div className="bg-slate-800 text-slate-400 text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-widest border border-white/5 shadow-sm">
                                     Página {currentPage + 1}
@@ -336,7 +354,8 @@ export default function PlannerPage() {
                                 </div>
                             </div>
                             
-                            <div className={`grid ${getGridCols()} gap-2 w-full h-full`}>
+                            {/* GRID DE CARTAS (NO se deforma, usa aspect-[63/88]) */}
+                            <div className={`grid ${getGridCols()} gap-2 w-full h-full content-start`}>
                                 {currentSlots.map((slotItem: any, index: number) => {
                                     const isEmptySlot = slotItem?.type === 'EMPTY'
                                     const isCard = slotItem?.type === 'CARD'
@@ -346,11 +365,10 @@ export default function PlannerPage() {
                                             key={`${currentPage}-${index}`} 
                                             onDragOver={handleDragOver}
                                             onDrop={(e) => handleDrop(e, index)}
-                                            className={`relative w-full h-full rounded border transition-all flex items-center justify-center group overflow-hidden ${
+                                            className={`relative w-full aspect-[63/88] rounded border transition-all flex items-center justify-center group overflow-hidden ${
                                                 slotItem ? 'border-white/20 bg-slate-900' : 'border-dashed border-white/10 bg-white/5 hover:bg-white/10 hover:border-violet-500/50'
                                             }`}
                                         >
-                                            {/* RENDERIZADO DEL HUECO */}
                                             {isCard && (
                                                 <div className="w-full h-full relative group/card">
                                                     <img src={slotItem.image} className="w-full h-full object-cover" />
@@ -360,7 +378,6 @@ export default function PlannerPage() {
                                                 </div>
                                             )}
 
-                                            {/* AQUÍ ESTÁ EL CAMBIO: TRASERA DE CARTA EN LUGAR DE CAJA GRIS */}
                                             {isEmptySlot && (
                                                 <div className="w-full h-full relative group/empty">
                                                     <img src={CARD_BACK_URL} className="w-full h-full object-cover opacity-60 grayscale-[30%]" />
@@ -380,7 +397,7 @@ export default function PlannerPage() {
                         </div>
                     </div>
 
-                    {/* DOCK */}
+                    {/* DOCK (IGUAL QUE ANTES) */}
                     <div className="w-80 h-full bg-slate-950 border-l border-white/10 flex flex-col shadow-2xl z-20">
                         <div className="p-4 border-b border-white/10 bg-slate-900/50">
                             <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">Tus Cartas ({albumCards.length})</h3>
