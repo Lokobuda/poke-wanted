@@ -402,7 +402,7 @@ export default function PlannerPage() {
                             <header className="mb-12 text-center md:text-left animate-in slide-in-from-top-4 duration-700">
                                 <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-violet-500/10 border border-violet-500/20 text-violet-300 text-[10px] font-bold uppercase tracking-widest mb-4">
                                     <LayoutTemplate size={12} />
-                                    <span>Binder Lab Beta</span>
+                                    <span>Binder Lab</span>
                                 </div>
                                 {!selectedAlbum ? (<h1 className="text-4xl md:text-5xl font-black text-white italic tracking-tighter uppercase mb-4">Organiza tu <span className="text-transparent bg-clip-text bg-gradient-to-r from-violet-400 to-indigo-400">Álbum</span></h1>) : (<h1 className="text-4xl md:text-5xl font-black text-white uppercase mb-4">Modo <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-teal-400">Diseño</span></h1>)}
                                 <p className="text-slate-400 max-w-2xl text-sm md:text-base leading-relaxed">{!selectedAlbum ? "Planifica la distribución física de tus cartas antes de meterlas en la carpeta real." : `Vamos a organizar "${selectedAlbum.name}".`}</p>

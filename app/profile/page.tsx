@@ -387,7 +387,7 @@ function ProfileContent() {
                     <LayoutTemplate size={32} />
                 </div>
                 <div className="flex-1 text-center md:text-left">
-                    <h3 className="text-xl font-bold text-white mb-1">Binder Lab <span className="text-[10px] bg-violet-600 text-white px-2 py-0.5 rounded-full ml-2 align-middle">BETA</span></h3>
+                    <h3 className="text-xl font-bold text-white mb-1">Binder Lab <span className="text-[10px] bg-violet-600 text-white px-2 py-0.5 rounded-full ml-2 align-middle"></span></h3>
                     <p className="text-slate-400 text-sm">Planifica la organización física de tus carpetas antes de mover una sola carta.</p>
                 </div>
                 <div className="p-2 bg-white/5 rounded-full text-slate-400 group-hover:bg-white/10 group-hover:text-white transition-colors">
