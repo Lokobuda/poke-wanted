@@ -26,16 +26,13 @@ export default function PlannerPage() {
   const [loadingCards, setLoadingCards] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
 
-  // Estados de interacción
   const [currentSpread, setCurrentSpread] = useState(0)
   const [binderPages, setBinderPages] = useState<Record<number, any[]>>({})
   const [draggedItem, setDraggedItem] = useState<any | null>(null)
   
-  // Estado de guardado
   const [isSaving, setIsSaving] = useState(false)
   const isFirstLoad = useRef(true)
 
-  // 1. Detectar Móvil
   useEffect(() => {
       const checkMobile = () => setIsMobile(window.innerWidth < 1024)
       checkMobile()
@@ -43,7 +40,6 @@ export default function PlannerPage() {
       return () => window.removeEventListener('resize', checkMobile)
   }, [])
 
-  // 2. Cargar Datos
   useEffect(() => {
     if (isMobile) return 
 
@@ -76,7 +72,6 @@ export default function PlannerPage() {
     fetchData()
   }, [isMobile])
 
-  // 3. AUTOGUARDADO
   useEffect(() => {
       if (isFirstLoad.current || !selectedAlbum || !selectedLayout) {
           isFirstLoad.current = false
@@ -260,18 +255,11 @@ export default function PlannerPage() {
       }
   }
 
-  const filteredCards = albumCards.filter(c => 
-      c.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-      c.number.toString().includes(searchQuery)
-  )
-
-  // Función auxiliar para PDF: Generar array continuo de páginas hasta la última usada
   const getPagesForPrint = () => {
       const pageIndices = Object.keys(binderPages).map(Number)
       if (pageIndices.length === 0) return []
       const maxPage = Math.max(...pageIndices)
       const pages = []
-      // Iteramos desde 0 hasta la última página usada para no saltarnos ninguna
       for (let i = 0; i <= maxPage; i++) {
           pages.push({
               pageNum: i,
@@ -280,6 +268,11 @@ export default function PlannerPage() {
       }
       return pages
   }
+
+  const filteredCards = albumCards.filter(c => 
+      c.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+      c.number.toString().includes(searchQuery)
+  )
 
   if (loading) return <div className="min-h-screen bg-slate-950 flex items-center justify-center"><Loader2 className="animate-spin text-violet-500" /></div>
   
@@ -311,39 +304,46 @@ export default function PlannerPage() {
   }
 
   return (
-    // FIX LAYOUT: Sin barra intermedia. top-[64px] para salvar la Navbar global.
+    // FIX LAYOUT: top-[64px] para respetar la navbar global.
     <div className="fixed inset-x-0 bottom-0 top-[64px] bg-slate-950 text-white font-sans flex flex-col z-0">
         
-        {/* ESTILOS DE IMPRESIÓN REFORZADOS */}
+        {/* ESTILOS DE IMPRESIÓN CORREGIDOS */}
         <style jsx global>{`
             @media print {
-                @page { size: A4; margin: 0; }
-                body { margin: 0; padding: 0; background: white !important; -webkit-print-color-adjust: exact; }
-                body * { visibility: hidden; }
-                #printable-area, #printable-area * { visibility: visible; }
+                @page { size: A4; margin: 10mm; }
+                
+                /* Ocultar TODO lo que no sea el área de impresión */
+                body > *:not(#printable-area) {
+                    display: none !important;
+                }
+
+                /* Asegurar que el área de impresión sea visible y fluya natural */
                 #printable-area { 
-                    position: absolute; 
-                    left: 0; 
-                    top: 0; 
-                    width: 100%; 
-                    background: white; 
-                    color: black; 
-                    z-index: 9999;
+                    display: block !important;
+                    position: relative !important;
+                    width: 100%;
+                    background: white;
+                    color: black;
                 }
+
+                /* Forzar salto de página limpio */
                 .print-page { 
-                    page-break-after: always; 
                     break-after: page; 
-                    min-height: 100vh;
-                    padding: 15mm;
-                    display: flex;
-                    flex-direction: column;
+                    page-break-after: always; 
+                    display: block; 
+                    margin-bottom: 20px;
                 }
-                .no-print { display: none !important; }
+                
+                /* Evitar que la última página genere una hoja en blanco extra */
+                .print-page:last-child { 
+                    break-after: auto; 
+                    page-break-after: auto; 
+                }
             }
         `}</style>
 
-        {/* ÁREA DE IMPRESIÓN (LÓGICA CORREGIDA) */}
-        <div id="printable-area" className="hidden print:block bg-white text-black">
+        {/* ÁREA DE IMPRESIÓN */}
+        <div id="printable-area" className="hidden">
             {getPagesForPrint().map(({pageNum, slots}) => {
                 let gridClass = 'grid-cols-3'
                 if (selectedLayout === '2x2') gridClass = 'grid-cols-2'
@@ -352,7 +352,7 @@ export default function PlannerPage() {
 
                 return (
                     <div key={pageNum} className="print-page">
-                        <div className="flex justify-between items-end mb-6 border-b-2 border-black pb-2">
+                        <div className="flex justify-between items-end mb-4 border-b-2 border-black pb-2">
                             <div>
                                 <h1 className="text-xl font-bold uppercase">{selectedAlbum?.name}</h1>
                                 <p className="text-[10px] text-gray-500 font-mono uppercase">PokéBinders • {selectedLayout}</p>
