@@ -296,19 +296,34 @@ export default function PlannerPage() {
   }
 
   return (
-    // FIX LAYOUT: Sin header interno. Ocupa todo el alto menos la navbar global (~64px).
+    // FIX LAYOUT: fixed desde top-20 (navbar aprox 80px) hasta bottom-0.
+    // Sin barra intermedia.
     <div className="fixed inset-x-0 bottom-0 top-[64px] bg-slate-950 text-white font-sans flex flex-col z-0">
         
-        {/* ESTILOS DE IMPRESIÓN CORREGIDOS (RESET COMPLETO DEL BODY PARA EVITAR CORTES) */}
+        {/* ESTILOS DE IMPRESIÓN REFORZADOS */}
         <style jsx global>{`
             @media print {
                 @page { size: A4; margin: 10mm; }
-                body { overflow: visible !important; position: static !important; }
+                body { background-color: white !important; }
                 body * { visibility: hidden; }
                 #printable-area, #printable-area * { visibility: visible; }
-                #printable-area { position: absolute; left: 0; top: 0; width: 100%; background: white; color: black; z-index: 9999; }
-                /* Forzamos salto de página limpio */
-                .print-page { break-after: page; page-break-after: always; display: block; height: 100vh; }
+                #printable-area { 
+                    position: absolute; 
+                    left: 0; 
+                    top: 0; 
+                    width: 100%; 
+                    background: white; 
+                    color: black; 
+                    z-index: 9999;
+                }
+                .print-page { 
+                    break-after: page; 
+                    page-break-after: always; 
+                    display: block; 
+                    height: 100vh; /* Forzar altura completa para asegurar el salto */
+                    overflow: hidden; /* Evitar desbordes que creen páginas extra */
+                }
+                .print-page:last-child { break-after: auto; page-break-after: auto; }
                 .no-print { display: none !important; }
             }
         `}</style>
@@ -316,40 +331,38 @@ export default function PlannerPage() {
         {/* ÁREA DE IMPRESIÓN (GENERADA) */}
         <div id="printable-area" className="hidden print:block bg-white text-black">
             {Object.entries(binderPages).map(([pageNum, slots]) => {
-                // Configurar columnas de impresión
                 let gridClass = 'grid-cols-3'
                 if (selectedLayout === '2x2') gridClass = 'grid-cols-2'
                 if (selectedLayout === '4x3' || selectedLayout === '4x4') gridClass = 'grid-cols-4'
                 if (selectedLayout === '5x5') gridClass = 'grid-cols-5'
 
                 return (
-                    <div key={pageNum} className="print-page p-8 flex flex-col h-full">
-                        <div className="flex justify-between items-end mb-6 border-b-2 border-black pb-4">
+                    <div key={pageNum} className="print-page p-4">
+                        <div className="flex justify-between items-end mb-4 border-b-2 border-black pb-2">
                             <div>
-                                <h1 className="text-2xl font-bold uppercase tracking-tight mb-1">{selectedAlbum?.name}</h1>
-                                <p className="text-xs text-gray-500 font-mono uppercase">Generado por PokéBinders • {selectedLayout}</p>
+                                <h1 className="text-xl font-bold uppercase">{selectedAlbum?.name}</h1>
+                                <p className="text-[10px] text-gray-500 font-mono uppercase">PokéBinders • {selectedLayout}</p>
                             </div>
-                            <span className="bg-black text-white text-sm font-bold px-3 py-1 rounded">PÁGINA {parseInt(pageNum) + 1}</span>
+                            <span className="bg-black text-white text-xs font-bold px-3 py-1 rounded">PÁGINA {parseInt(pageNum) + 1}</span>
                         </div>
                         
-                        <div className={`grid ${gridClass} gap-4 w-full`}>
+                        <div className={`grid ${gridClass} gap-2 w-full`}>
                             {slots.map((slot: any, idx: number) => (
                                 <div key={idx} className="aspect-[63/88] border border-gray-300 rounded flex flex-col items-center justify-center relative overflow-hidden bg-gray-50">
                                     {slot?.type === 'CARD' ? (
                                         <>
                                             <img src={slot.image} className="w-full h-full object-cover" />
-                                            <div className="absolute bottom-0 inset-x-0 bg-white/90 p-1 text-[8px] text-center font-bold border-t border-gray-200 truncate leading-tight">
-                                                <span className="block text-[6px] text-gray-500">#{slot.number}</span>
-                                                {slot.name}
+                                            <div className="absolute bottom-0 inset-x-0 bg-white/90 p-0.5 text-[6px] text-center font-bold border-t border-gray-200 truncate">
+                                                {slot.name} #{slot.number}
                                             </div>
                                         </>
                                     ) : slot?.type === 'EMPTY' ? (
                                         <div className="flex flex-col items-center justify-center text-gray-300">
-                                            <Box size={24} className="mb-1 opacity-30" />
-                                            <span className="text-[7px] font-bold uppercase tracking-widest">Vacío</span>
+                                            <Box size={20} className="mb-1 opacity-30" />
+                                            <span className="text-[6px] font-bold uppercase tracking-widest">Vacío</span>
                                         </div>
                                     ) : (
-                                        <span className="text-gray-200 text-sm font-black opacity-20">#{idx + 1}</span>
+                                        <span className="text-gray-200 text-xs font-black opacity-20">#{idx + 1}</span>
                                     )}
                                 </div>
                             ))}
@@ -420,13 +433,14 @@ export default function PlannerPage() {
                     {/* LIENZO */}
                     <div className="flex-1 bg-slate-900/50 border border-white/5 rounded-2xl p-4 md:p-8 flex items-center justify-center relative overflow-hidden mr-4 shadow-inner">
                         
-                        {/* BOTONES FLOTANTES DE CONTROL (DENTRO DEL LIENZO) */}
+                        {/* BOTONES FLOTANTES: Izquierda */}
                         <div className="absolute top-6 left-6 z-20 flex gap-2">
                             <button onClick={() => setSelectedLayout(null)} className="flex items-center gap-2 px-4 py-2 bg-slate-950/80 backdrop-blur border border-white/10 rounded-full text-xs font-bold uppercase tracking-widest hover:bg-white/10 transition-colors shadow-lg">
                                 <ArrowLeft size={14} /> Volver
                             </button>
                         </div>
 
+                        {/* BOTONES FLOTANTES: Derecha */}
                         <div className="absolute top-6 right-6 z-20 flex items-center gap-3">
                             <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-widest backdrop-blur border border-white/5 shadow-lg transition-all ${isSaving ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'}`}>
                                 {isSaving ? <Loader2 size={10} className="animate-spin" /> : <CheckCircle2 size={10} />}
@@ -437,12 +451,12 @@ export default function PlannerPage() {
                             </button>
                         </div>
 
-                        {/* CONTENEDOR DE PÁGINAS */}
-                        <div className="flex gap-4 h-full max-h-full transition-all duration-500 items-center justify-center w-full">
+                        {/* CONTENEDOR DE PÁGINAS (RESPONSIVE HEIGHT CON MAX-H PARA DEJAR SITIO ABAJO) */}
+                        <div className="flex gap-4 w-full justify-center items-center h-full max-h-[calc(100%-60px)] transition-all duration-500">
                             {getPagesInCurrentSpread().map((pageIndex) => {
                                 const slots = binderPages[pageIndex] || Array(getSlotsPerPage()).fill(null)
                                 return (
-                                    <div key={pageIndex} className="relative h-full max-h-full bg-slate-950 rounded-lg border border-white/10 shadow-2xl p-4 flex flex-col transition-all duration-300 ease-in-out" style={{ aspectRatio: getPageAspectRatio() }}>
+                                    <div key={pageIndex} className="relative h-full bg-slate-950 rounded-lg border border-white/10 shadow-2xl p-4 flex flex-col transition-all duration-300 ease-in-out" style={{ aspectRatio: getPageAspectRatio() }}>
                                         <div className="absolute -top-10 left-0 right-0 flex justify-center"><div className="bg-slate-800 text-slate-400 text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-widest border border-white/5 shadow-sm">Página {pageIndex + 1}</div></div>
                                         <div className={`grid ${getGridCols()} gap-2 w-full h-full content-start`}>
                                             {slots.map((slotItem: any, slotIdx: number) => {
@@ -462,7 +476,7 @@ export default function PlannerPage() {
                             })}
                         </div>
                         
-                        {/* CONTROLES PAGINACIÓN */}
+                        {/* CONTROLES PAGINACIÓN (STATIC BOTTOM, ABSOLUTE POSITIONED RELATIVE TO CANVAS) */}
                         <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-4 bg-slate-950/80 backdrop-blur-md border border-white/10 px-4 py-2 rounded-full shadow-2xl z-30">
                             <button onClick={clearSpread} className="p-2 hover:bg-red-500/20 text-slate-500 hover:text-red-400 rounded-full transition-colors" title="Vaciar vista actual"><RotateCcw size={16}/></button>
                             <div className="h-6 w-[1px] bg-white/10" />
