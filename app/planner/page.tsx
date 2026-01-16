@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { supabase } from '../../lib/supabase'
 import { 
     Loader2, LayoutTemplate, Library, Grid3X3, ArrowLeft, 
-    CheckCircle2, Search, Image as ImageIcon, Box
+    CheckCircle2, Search, Image as ImageIcon, Box, MonitorSmartphone
 } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -13,17 +13,22 @@ export default function PlannerPage() {
   const router = useRouter()
   const [loading, setLoading] = useState(true)
   const [albums, setAlbums] = useState<any[]>([])
+  const [isMobile, setIsMobile] = useState(false)
   
-  // Estados de navegación
   const [selectedAlbum, setSelectedAlbum] = useState<any | null>(null)
   const [selectedLayout, setSelectedLayout] = useState<string | null>(null) 
   
-  // Estados del Editor (Fase 3)
   const [albumCards, setAlbumCards] = useState<any[]>([])
   const [loadingCards, setLoadingCards] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
 
-  // Cargar álbumes iniciales
+  useEffect(() => {
+      const checkMobile = () => setIsMobile(window.innerWidth < 1024) 
+      checkMobile()
+      window.addEventListener('resize', checkMobile)
+      return () => window.removeEventListener('resize', checkMobile)
+  }, [])
+
   useEffect(() => {
     const fetchAlbums = async () => {
       try {
@@ -50,32 +55,18 @@ export default function PlannerPage() {
     fetchAlbums()
   }, [])
 
-  // Cargar cartas cuando se selecciona un álbum
   const fetchAlbumCards = async (albumId: string) => {
       setLoadingCards(true)
       try {
-          // Consulta compleja para obtener la imagen y datos de la carta
           const { data, error } = await supabase
             .from('album_cards')
-            .select(`
-                id, 
-                card_variants (
-                    id, 
-                    image_url, 
-                    cards (
-                        name, 
-                        collector_number, 
-                        rarity
-                    )
-                )
-            `)
+            .select(`id, card_variants (id, image_url, cards (name, collector_number, rarity))`)
             .eq('album_id', albumId)
           
           if (error) throw error
 
-          // Aplanamos los datos para facilitar el uso
           const formattedCards = data.map((item: any) => ({
-              id: item.id, // ID único de la carta en el álbum
+              id: item.id, 
               variantId: item.card_variants?.id,
               name: item.card_variants?.cards?.name || 'Desconocido',
               number: item.card_variants?.cards?.collector_number || '---',
@@ -85,8 +76,7 @@ export default function PlannerPage() {
 
           setAlbumCards(formattedCards)
       } catch (error) {
-          console.error(error)
-          toast.error('Error cargando las cartas del álbum')
+          toast.error('Error cargando cartas')
       } finally {
           setLoadingCards(false)
       }
@@ -102,19 +92,15 @@ export default function PlannerPage() {
       setSelectedLayout(layout)
   }
 
-  // --- COMPONENTES VISUALES DEL EDITOR ---
-
-  // Cálculo de columnas CSS según el formato
   const getGridCols = () => {
       switch(selectedLayout) {
           case '2x2': return 'grid-cols-2'
           case '3x3': return 'grid-cols-3'
-          case '3x4': return 'grid-cols-3' // Playset vertical
+          case '3x4': return 'grid-cols-3' 
           default: return 'grid-cols-3'
       }
   }
 
-  // Cálculo de huecos por página
   const getSlotsPerPage = () => {
       switch(selectedLayout) {
           case '2x2': return 4
@@ -124,24 +110,54 @@ export default function PlannerPage() {
       }
   }
 
-  // Filtrado de cartas en el Dock
   const filteredCards = albumCards.filter(c => 
       c.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
       c.number.includes(searchQuery)
   )
 
-  // --- RENDERIZADO ---
+  if (loading) return <div className="min-h-screen bg-slate-950 flex items-center justify-center"><Loader2 className="animate-spin text-violet-500" /></div>
 
-  if (loading) return (
-    <div className="min-h-screen bg-slate-950 flex items-center justify-center">
-        <Loader2 className="animate-spin text-violet-500" />
-    </div>
-  )
+  // --- VISTA DE BLOQUEO PARA MÓVIL (TEXTO MEJORADO) ---
+  if (selectedLayout && isMobile) {
+      return (
+        <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-8 text-center font-sans">
+            <div className="w-24 h-24 bg-gradient-to-br from-violet-500/10 to-indigo-500/10 rounded-full flex items-center justify-center mb-8 border border-white/5 animate-pulse">
+                <MonitorSmartphone size={40} className="text-violet-400" />
+            </div>
+            
+            <h2 className="text-3xl font-black text-white mb-4 uppercase italic tracking-tight">
+                ¿Quieres organizar tu álbum?
+            </h2>
+            
+            <div className="max-w-xs mx-auto space-y-4">
+                <p className="text-slate-300 text-sm leading-relaxed font-medium">
+                    El diseño de un binder requiere espacio, perspectiva y mucha calma.
+                </p>
+                <p className="text-slate-500 text-xs leading-relaxed">
+                    Hemos creado el <strong>Binder Lab</strong> para disfrutarse en pantalla grande, donde puedes cuidar cada detalle sin limitaciones.
+                </p>
+            </div>
+
+            <div className="mt-10 p-4 rounded-xl bg-white/5 border border-white/10">
+                <p className="text-[10px] uppercase tracking-widest text-violet-300 font-bold">
+                    Te esperamos en el ordenador
+                </p>
+            </div>
+
+            <button 
+                onClick={() => setSelectedLayout(null)} 
+                className="mt-8 text-slate-500 hover:text-white underline decoration-slate-700 underline-offset-4 text-xs transition-colors"
+            >
+                Volver atrás
+            </button>
+        </div>
+      )
+  }
 
   return (
     <div className="min-h-screen bg-slate-950 text-white font-sans flex flex-col h-screen overflow-hidden">
         
-        {/* --- BARRA SUPERIOR (HEADER) --- */}
+        {/* --- HEADER --- */}
         <div className="h-16 border-b border-white/10 bg-slate-950 flex items-center px-6 justify-between z-50 shrink-0">
             <div className="flex items-center gap-4">
                 <button 
@@ -168,7 +184,6 @@ export default function PlannerPage() {
             
             {selectedLayout && (
                 <div className="flex items-center gap-3">
-                     {/* Aquí irán botones de Guardar / Exportar */}
                      <span className="text-[10px] text-slate-500 uppercase tracking-widest hidden md:inline-block">Autoguardado activado</span>
                 </div>
             )}
@@ -177,11 +192,10 @@ export default function PlannerPage() {
         {/* --- CONTENIDO PRINCIPAL --- */}
         <div className="flex-1 relative overflow-hidden flex">
             
-            {/* VISTA 1 & 2: SELECTORES (Si no estamos en modo diseño) */}
+            {/* VISTA 1 & 2: SELECTORES */}
             {!selectedLayout && (
                 <div className="w-full h-full overflow-y-auto p-6 md:p-12">
                      <div className="max-w-6xl mx-auto pt-10">
-                        {/* HEADER EXPLICATIVO */}
                         <header className="mb-12 text-center md:text-left animate-in slide-in-from-top-4 duration-700">
                             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-violet-500/10 border border-violet-500/20 text-violet-300 text-[10px] font-bold uppercase tracking-widest mb-4">
                                 <LayoutTemplate size={12} />
@@ -193,8 +207,8 @@ export default function PlannerPage() {
                                     Organiza tu <span className="text-transparent bg-clip-text bg-gradient-to-r from-violet-400 to-indigo-400">Álbum</span>
                                 </h1>
                             ) : (
-                                <h1 className="text-4xl md:text-5xl font-black text-white italic tracking-tighter uppercase mb-4">
-                                    Elige tu <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-400">Carpeta</span>
+                                <h1 className="text-4xl md:text-5xl font-black text-white uppercase mb-4">
+                                    Modo <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-teal-400">Diseño</span>
                                 </h1>
                             )}
 
@@ -206,7 +220,6 @@ export default function PlannerPage() {
                             </p>
                         </header>
 
-                        {/* SELECCIÓN DE ÁLBUM */}
                         {!selectedAlbum && (
                             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
                                 {albums.length === 0 ? (
@@ -230,7 +243,6 @@ export default function PlannerPage() {
                             </div>
                         )}
 
-                        {/* SELECCIÓN DE FORMATO */}
                         {selectedAlbum && (
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 animate-in fade-in slide-in-from-right-8 duration-500 pb-20">
                                 <div onClick={() => handleConfirmLayout('2x2')} className="group cursor-pointer relative bg-slate-900 border border-white/10 rounded-3xl p-8 hover:border-blue-500 hover:bg-slate-800/50 transition-all hover:-translate-y-2 hover:shadow-2xl flex flex-col items-center text-center">
@@ -258,44 +270,40 @@ export default function PlannerPage() {
                 </div>
             )}
 
-            {/* --- VISTA 3: EL EDITOR (WORKBENCH) --- */}
-            {selectedLayout && (
-                <div className="w-full h-full flex flex-col md:flex-row animate-in fade-in zoom-in-[0.99] duration-500">
+            {/* --- VISTA 3: EL EDITOR (PC ONLY) --- */}
+            {selectedLayout && !isMobile && (
+                <div className="w-full h-full flex flex-row animate-in fade-in zoom-in-[0.99] duration-500">
                     
                     {/* IZQUIERDA: EL LIENZO (CANVAS) */}
-                    <div className="flex-1 bg-slate-900/50 relative overflow-y-auto overflow-x-hidden p-4 md:p-8 flex justify-center">
-                        <div className="w-full max-w-4xl min-h-full">
-                            
-                            {/* PAGINA DE EJEMPLO (VACÍA) */}
-                            <div className="bg-slate-950 rounded-lg border border-white/10 shadow-2xl p-4 md:p-8 mb-8 relative">
-                                <div className="absolute -top-3 left-4 bg-slate-800 text-slate-400 text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-widest border border-white/5">
-                                    Página 1
-                                </div>
-                                
-                                {/* LA CUADRÍCULA REAL */}
-                                <div className={`grid ${getGridCols()} gap-3 md:gap-4 aspect-[210/297] w-full max-w-[600px] mx-auto`}>
-                                    {[...Array(getSlotsPerPage())].map((_, i) => (
-                                        <div key={i} className="relative aspect-[63/88] rounded border border-dashed border-white/10 bg-white/5 hover:bg-white/10 transition-colors flex items-center justify-center group cursor-pointer">
-                                            <span className="text-slate-600 text-xs font-mono group-hover:text-slate-400">
-                                                {i + 1}
-                                            </span>
-                                        </div>
-                                    ))}
-                                </div>
+                    <div className="flex-1 bg-slate-900/50 p-8 flex items-center justify-center relative overflow-hidden">
+                        <div className="relative h-full max-h-full aspect-[210/297] bg-slate-950 rounded-lg border border-white/10 shadow-2xl p-4 md:p-6 flex flex-col">
+                            {/* Header de la Hoja */}
+                            <div className="absolute -top-3 left-4 bg-slate-800 text-slate-400 text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-widest border border-white/5 shadow-sm">
+                                Página 1
                             </div>
-
+                            
+                            {/* LA CUADRÍCULA REAL (AUTO-ESCALABLE) */}
+                            <div className={`grid ${getGridCols()} gap-2 w-full h-full`}>
+                                {[...Array(getSlotsPerPage())].map((_, i) => (
+                                    <div key={i} className="relative w-full h-full rounded border border-dashed border-white/10 bg-white/5 hover:bg-white/10 transition-colors flex items-center justify-center group cursor-pointer overflow-hidden">
+                                        <span className="text-slate-600 text-xs font-mono group-hover:text-slate-400">
+                                            {i + 1}
+                                        </span>
+                                    </div>
+                                ))}
+                            </div>
                         </div>
                     </div>
 
-                    {/* DERECHA: EL DOCK DE CARTAS (POOL) */}
-                    <div className="w-full md:w-80 h-1/3 md:h-full bg-slate-950 border-t md:border-t-0 md:border-l border-white/10 flex flex-col shadow-2xl z-20">
+                    {/* DERECHA: EL DOCK DE CARTAS */}
+                    <div className="w-80 h-full bg-slate-950 border-l border-white/10 flex flex-col shadow-2xl z-20">
                         <div className="p-4 border-b border-white/10 bg-slate-900/50">
                             <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">Tus Cartas ({albumCards.length})</h3>
                             <div className="relative">
                                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={14} />
                                 <input 
                                     type="text" 
-                                    placeholder="Buscar carta..." 
+                                    placeholder="Buscar..." 
                                     value={searchQuery}
                                     onChange={(e) => setSearchQuery(e.target.value)}
                                     className="w-full bg-slate-900 border border-white/10 rounded-lg py-2 pl-9 pr-3 text-xs text-white focus:outline-none focus:border-violet-500 transition-all"
@@ -332,7 +340,6 @@ export default function PlannerPage() {
                                 <button className="flex-1 py-2 bg-white/5 rounded text-[10px] font-bold uppercase tracking-wider hover:bg-white/10 text-slate-400 flex items-center justify-center gap-2">
                                     <Box size={14} /> Hueco Vacío
                                 </button>
-                                {/* Futuros botones de herramientas */}
                             </div>
                         </div>
                     </div>
