@@ -260,6 +260,7 @@ export default function PlannerPage() {
       if (pageIndices.length === 0) return []
       const maxPage = Math.max(...pageIndices)
       const pages = []
+      // Rellena todas las páginas desde la 0 hasta la última usada
       for (let i = 0; i <= maxPage; i++) {
           pages.push({
               pageNum: i,
@@ -304,45 +305,52 @@ export default function PlannerPage() {
   }
 
   return (
-    // FIX LAYOUT: top-[64px] para respetar la navbar global.
     <div className="fixed inset-x-0 bottom-0 top-[64px] bg-slate-950 text-white font-sans flex flex-col z-0">
         
-        {/* ESTILOS DE IMPRESIÓN CORREGIDOS */}
+        {/* ESTILOS DE IMPRESIÓN REPARADOS */}
         <style jsx global>{`
             @media print {
-                @page { size: A4; margin: 10mm; }
-                
-                /* Ocultar TODO lo que no sea el área de impresión */
-                body > *:not(#printable-area) {
+                /* Resetear todo el cuerpo y HTML para evitar conflictos de fixed/overflow */
+                html, body {
+                    height: auto !important;
+                    overflow: visible !important;
+                    margin: 0 !important;
+                    padding: 0 !important;
+                    background: white !important;
+                }
+
+                /* Ocultar explícitamente la interfaz de la app */
+                .no-print-ui {
                     display: none !important;
                 }
 
-                /* Asegurar que el área de impresión sea visible y fluya natural */
+                /* Mostrar y posicionar el área de impresión */
                 #printable-area { 
-                    display: block !important;
-                    position: relative !important;
+                    display: block !important; 
+                    position: absolute; 
+                    top: 0; 
+                    left: 0; 
                     width: 100%;
+                    height: auto;
+                    z-index: 9999;
                     background: white;
                     color: black;
                 }
 
-                /* Forzar salto de página limpio */
                 .print-page { 
                     break-after: page; 
                     page-break-after: always; 
                     display: block; 
-                    margin-bottom: 20px;
+                    /* Min-height ayuda a empujar la siguiente página */
+                    min-height: 90vh;
+                    padding: 10mm;
                 }
                 
-                /* Evitar que la última página genere una hoja en blanco extra */
-                .print-page:last-child { 
-                    break-after: auto; 
-                    page-break-after: auto; 
-                }
+                .print-page:last-child { break-after: auto; page-break-after: auto; }
             }
         `}</style>
 
-        {/* ÁREA DE IMPRESIÓN */}
+        {/* ÁREA DE IMPRESIÓN (Separada del flujo principal) */}
         <div id="printable-area" className="hidden">
             {getPagesForPrint().map(({pageNum, slots}) => {
                 let gridClass = 'grid-cols-3'
@@ -352,7 +360,7 @@ export default function PlannerPage() {
 
                 return (
                     <div key={pageNum} className="print-page">
-                        <div className="flex justify-between items-end mb-4 border-b-2 border-black pb-2">
+                        <div className="flex justify-between items-end mb-6 border-b-2 border-black pb-2">
                             <div>
                                 <h1 className="text-xl font-bold uppercase">{selectedAlbum?.name}</h1>
                                 <p className="text-[10px] text-gray-500 font-mono uppercase">PokéBinders • {selectedLayout}</p>
@@ -386,8 +394,9 @@ export default function PlannerPage() {
             })}
         </div>
 
-        {/* WORKSPACE */}
-        <div className="flex-1 relative overflow-hidden flex flex-col">
+        {/* WORKSPACE (INTERFAZ DE USUARIO) */}
+        {/* Añado la clase 'no-print-ui' para ocultarlo limpiamente al imprimir */}
+        <div className="no-print-ui flex-1 relative overflow-hidden flex flex-col h-full">
             
             {/* VISTA 1 & 2: SELECTORES */}
             {!selectedLayout && (
