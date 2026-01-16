@@ -9,7 +9,7 @@ import {
   Layers, BarChart3, Trophy, Target, Filter, Search, FolderOpen, 
   ShieldCheck, Package, Lock, 
   Ticket, CreditCard, Zap, ArrowLeft, Copy, CheckSquare, LogOut, Trash2, Camera,
-  PartyPopper, Store // Iconos nuevos para la celebración
+  PartyPopper, Store, LayoutTemplate // <--- AÑADIDO ICONO PARA EL PLANNER
 } from 'lucide-react'
 import { toPng } from 'html-to-image'
 import download from 'downloadjs'
@@ -23,11 +23,11 @@ import TutorialOverlay, { TutorialStep } from '../components/TutorialOverlay'
 import { getCardScore } from '../../lib/scoring'
 import { RANKS, STARTER_PATHS } from '../../lib/ranks'
 
-// ... (PROFILE_STEPS se mantiene igual) ...
 const PROFILE_STEPS: TutorialStep[] = [
   { targetId: 'tour-start', title: '¡Hola, coleccionista! 👋', text: 'Veo que acabas de aterrizar. Tu perfil es tu cuartel general. Vamos a echarle un vistazo.', action: '¡Dale caña!', position: 'center' },
   { targetId: 'tour-rank', title: 'Tu Nivel de Prestigio 👑', text: 'Sube de nivel consiguiendo cartas y completando sets para seguir creciendo cada día como coleccionista.', action: 'Entendido', position: 'bottom' },
   { targetId: 'tour-stats', title: 'Tus Estadísticas 📊', text: 'Por aquí está tu progreso global. Cantidad total de cartas, puntuación Hunter y porcentaje total completado.', action: 'Siguiente', position: 'bottom' },
+  { targetId: 'tour-planner', title: 'Binder Lab 🧪', text: '¡NUEVO! Planifica cómo organizar tus carpetas físicas antes de mover las cartas reales.', action: '¡Mola!', position: 'bottom' },
   { targetId: 'tour-projects', title: 'Centro de Proyectos 📁', text: 'Aquí viven tus Álbumes, tu Cámara Acorazada (para cartas gradeadas) y tu Almacén Sellado (para tus productos sellados).', action: '¡Genial!', position: 'top' },
   { targetId: 'tour-wanted', title: 'Wanted List 🎯', text: 'Selecciona las cartas que te faltan para generar un póster de búsqueda y compartirlo.', action: '¡Entendido!', position: 'top' },
   { targetId: 'tour-create-btn', title: 'Tu Primera Misión 🚀', text: 'Haz clic en el botón de crear álbum para empezar tu primera colección.', action: 'Vamos allá', position: 'bottom' }
@@ -55,12 +55,11 @@ function ProfileContent() {
   const isTutorialChecked = useRef(false) 
   
   const [isRedeemOpen, setIsRedeemOpen] = useState(false)
-  // Añadimos 'SUCCESS' como modo posible
   const [redeemMode, setRedeemMode] = useState<'CODE' | 'SUBSCRIPTION' | 'SUCCESS'>('SUBSCRIPTION')
   const [redeemCode, setRedeemCode] = useState('')
   const [isRedeeming, setIsRedeeming] = useState(false)
   const [isSubscribing, setIsSubscribing] = useState(false)
-  const [successGym, setSuccessGym] = useState<{name: string, logo_url?: string} | null>(null) // Nuevo estado para la tienda encontrada
+  const [successGym, setSuccessGym] = useState<{name: string, logo_url?: string} | null>(null)
   
   const [stats, setStats] = useState({ totalCards: 0, totalAlbums: 0, globalCompletion: 0, projectsProgress: [] as any[], gradedCount: 0 })
   const [missingCards, setMissingCards] = useState<any[]>([])
@@ -82,7 +81,6 @@ function ProfileContent() {
   const [isDeletingAlbum, setIsDeletingAlbum] = useState(false)
   const [isScreenshotMode, setIsScreenshotMode] = useState(false)
 
-  // ... (useEffects y lógicas de carga idénticas) ...
   useEffect(() => { const checkTutorial = async () => { if (isTutorialChecked.current) return; const localCompleted = typeof window !== 'undefined' ? localStorage.getItem('tutorial_completed') === 'true' : false; if (localCompleted) { isTutorialChecked.current = true; return; } const { data: { session } } = await supabase.auth.getSession(); if (session) { const { data: profiles } = await supabase.from('profiles').select('has_completed_tutorial, starter_gen').eq('id', session.user.id).limit(1); const profile = profiles?.[0]; if (profile?.has_completed_tutorial) { localStorage.setItem('tutorial_completed', 'true') } else if (profile?.starter_gen && !profile?.has_completed_tutorial) { setShowTutorial(true) } } isTutorialChecked.current = true; }; checkTutorial() }, [])
   useEffect(() => { if (!searchParams) return; const openPro = searchParams.get('open_pro'); if (openPro === 'true') { setIsRedeemOpen(true); router.replace('/profile', { scroll: false }) } const paymentStatus = searchParams.get('payment'); if (paymentStatus === 'success') { toast.success('¡Bienvenido al Club PRO!'); router.replace('/profile', { scroll: false }); setTimeout(() => window.location.reload(), 1500) } else if (paymentStatus === 'cancelled') { toast.info('Proceso de pago cancelado'); router.replace('/profile', { scroll: false }) } }, [searchParams, router])
   useEffect(() => { let mounted = true; const runFetch = async () => { await fetchProfileData(mounted) }; runFetch(); return () => { mounted = false } }, [searchParams]) 
@@ -278,6 +276,23 @@ function ProfileContent() {
             <div className="bg-slate-900/50 backdrop-blur border border-white/5 p-6 rounded-3xl flex flex-col justify-between h-40">
                 <div className="flex justify-between items-start relative z-10"><div className="p-3 bg-emerald-500/10 rounded-xl text-emerald-400"><BarChart3 size={24} /></div><span className="text-xs font-bold uppercase tracking-widest text-slate-500">Progreso Global</span></div>
                 <div><span className="text-4xl font-black text-white">{stats.globalCompletion}%</span><p className="text-slate-400 text-xs mt-1">De tus proyectos activos</p></div>
+            </div>
+        </div>
+
+        {/* --- NUEVO BANNER: BINDER PLANNER (BETA) --- */}
+        <div id="tour-planner" className="mb-12 relative group cursor-pointer" onClick={() => router.push('/planner')}>
+            <div className="absolute inset-0 bg-gradient-to-r from-violet-600/20 to-indigo-600/20 rounded-3xl blur-xl group-hover:blur-2xl transition-all opacity-75" />
+            <div className="relative bg-slate-900/50 border border-white/10 rounded-3xl p-6 flex flex-col md:flex-row items-center gap-6 hover:border-violet-500/50 transition-all">
+                <div className="p-4 bg-violet-500/10 rounded-2xl text-violet-400">
+                    <LayoutTemplate size={32} />
+                </div>
+                <div className="flex-1 text-center md:text-left">
+                    <h3 className="text-xl font-bold text-white mb-1">Binder Lab <span className="text-[10px] bg-violet-600 text-white px-2 py-0.5 rounded-full ml-2 align-middle">BETA</span></h3>
+                    <p className="text-slate-400 text-sm">Planifica la organización física de tus carpetas antes de mover una sola carta.</p>
+                </div>
+                <div className="p-2 bg-white/5 rounded-full text-slate-400 group-hover:bg-white/10 group-hover:text-white transition-colors">
+                    <ChevronRight size={24} />
+                </div>
             </div>
         </div>
 
