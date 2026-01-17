@@ -19,8 +19,8 @@ export default function PlannerPage() {
   const [albums, setAlbums] = useState<any[]>([])
   const [isMobile, setIsMobile] = useState(false)
   
-  const [selectedAlbum, setSelectedAlbum] = useState<any | null>(null)
-  const [selectedLayout, setSelectedLayout] = useState<string | null>(null) 
+  const [selectedLayout, setSelectedLayout] = useState<string | null>(null)
+  const [selectedAlbum, setSelectedAlbum] = useState<any | null>(null) 
   
   const [albumCards, setAlbumCards] = useState<any[]>([])
   const [loadingCards, setLoadingCards] = useState(false)
