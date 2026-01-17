@@ -19,8 +19,8 @@ export default function PlannerPage() {
   const [albums, setAlbums] = useState<any[]>([])
   const [isMobile, setIsMobile] = useState(false)
   
-  const [selectedLayout, setSelectedLayout] = useState<string | null>(null)
-  const [selectedAlbum, setSelectedAlbum] = useState<any | null>(null) 
+  const [selectedAlbum, setSelectedAlbum] = useState<any | null>(null)
+  const [selectedLayout, setSelectedLayout] = useState<string | null>(null) 
   
   const [albumCards, setAlbumCards] = useState<any[]>([])
   const [loadingCards, setLoadingCards] = useState(false)
@@ -144,11 +144,18 @@ export default function PlannerPage() {
       setSelectedAlbum(album)
       fetchAlbumCards(album.id)
       
-      if (album.binder_data && album.binder_data.layout) {
+      // CAMBIO CLAVE: Verificamos que existan datos Y que no estén vacíos
+      // Object.keys(album.binder_data.slots).length > 0 asegura que hay cartas colocadas
+      if (album.binder_data && 
+          album.binder_data.layout && 
+          album.binder_data.slots && 
+          Object.keys(album.binder_data.slots).length > 0) {
+          
           setSelectedLayout(album.binder_data.layout)
-          setBinderPages(album.binder_data.slots || {})
+          setBinderPages(album.binder_data.slots)
           toast.success('Diseño cargado correctamente')
       } else {
+          // Si está vacío o no hay datos, forzamos la selección de formato
           setSelectedLayout(null)
           setBinderPages({})
       }
@@ -305,45 +312,20 @@ export default function PlannerPage() {
 
   return (
     <>
-        {/* CSS DE IMPRESIÓN REPARADO: AHORA OCULTA TAMBIÉN LAS NOTIFICACIONES (SONNER) */}
+        {/* CSS DE IMPRESIÓN */}
         <style jsx global>{`
-            /* ESTILOS PARA PANTALLA (NO IMPRESIÓN) */
             .print-only { display: none; }
-
-            /* ESTILOS PARA IMPRESIÓN */
             @media print {
-                /* 1. Ocultar TODO: web, navbar, footer, Y EL TOAST DE SONNER ([data-sonner-toaster]) */
                 .no-print, nav, header, footer, .fixed, [data-sonner-toaster] { display: none !important; }
-                
-                /* 2. Mostrar SOLO el contenido de impresión */
                 .print-only { 
                     display: block !important; 
-                    position: absolute; 
-                    top: 0; 
-                    left: 0; 
-                    width: 100%;
-                    z-index: 99999;
+                    position: absolute; top: 0; left: 0; width: 100%; z-index: 99999;
                 }
-
-                /* 3. Resetear Body y HTML */
                 html, body {
-                    height: auto !important;
-                    width: 100% !important;
-                    margin: 0 !important;
-                    padding: 0 !important;
-                    overflow: visible !important;
-                    background: white !important;
+                    height: auto !important; width: 100% !important; margin: 0 !important; padding: 0 !important; overflow: visible !important; background: white !important;
                 }
-
-                /* 4. Estilos de página */
                 @page { size: A4; margin: 10mm; }
-                
-                .print-page { 
-                    break-after: page; 
-                    page-break-after: always; 
-                    display: block; 
-                    margin-bottom: 20px;
-                }
+                .print-page { break-after: page; page-break-after: always; display: block; margin-bottom: 20px; }
                 .print-page:last-child { break-after: auto; }
             }
         `}</style>
@@ -365,7 +347,6 @@ export default function PlannerPage() {
                             </div>
                             <span className="bg-black text-white text-xs font-bold px-3 py-1 rounded">PÁGINA {pageNum + 1}</span>
                         </div>
-                        
                         <div className={`grid ${gridClass} gap-3 w-full`}>
                             {slots.map((slot: any, idx: number) => (
                                 <div key={idx} className="aspect-[63/88] border border-gray-300 rounded flex flex-col items-center justify-center relative overflow-hidden bg-gray-50">
@@ -415,6 +396,7 @@ export default function PlannerPage() {
                                     ) : (
                                         albums.map((album) => {
                                             const setLogo = album.set_id ? `https://images.pokemontcg.io/${album.set_id}/logo.png` : null
+                                            // Corrección visual: Aseguramos que solo muestre "En Curso" si tiene contenido real
                                             const hasDesign = album.binder_data?.slots && Object.keys(album.binder_data.slots).length > 0
                                             return (
                                                 <div key={album.id} onClick={() => handleSelectAlbum(album)} className="group relative bg-slate-900 border border-white/5 rounded-2xl p-6 cursor-pointer hover:border-violet-500/50 hover:bg-slate-800 transition-all hover:-translate-y-1 hover:shadow-xl flex flex-col items-center gap-4 text-center">
