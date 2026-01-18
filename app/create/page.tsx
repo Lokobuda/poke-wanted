@@ -24,16 +24,30 @@ const POKEMON_TYPES = [
     { value: 'Water', label: 'Agua', color: 'bg-blue-500 text-white' }
 ]
 
+// LISTA COMPLETA DE RAREZAS (API v2)
 const CARD_RARITIES = [
     { value: 'Common', label: 'Común' },
     { value: 'Uncommon', label: 'Infrecuente' },
     { value: 'Rare', label: 'Rara' },
+    { value: 'Rare Holo', label: 'Rara Holo' },
     { value: 'Double Rare', label: 'Doble Rara (RR)' },
-    { value: 'Ultra Rare', label: 'Ultra Rara (UR)' },
+    { value: 'Ultra Rare', label: 'Ultra Rara (UR)' }, // Incluye EX/GX modernos
     { value: 'Illustration Rare', label: 'Ilustración Rara (AR)' },
     { value: 'Special Illustration Rare', label: 'Ilustración Esp. (SAR)' },
     { value: 'Hyper Rare', label: 'Hiper Rara (Gold)' },
-    { value: 'Promo', label: 'Promo' }
+    { value: 'Rare Secret', label: 'Secreta (Secret Rare)' },
+    { value: 'Rare Holo EX', label: 'EX (Clásica)' },
+    { value: 'Rare Holo GX', label: 'GX' },
+    { value: 'Rare Holo V', label: 'V' },
+    { value: 'Rare Holo VMAX', label: 'VMAX' },
+    { value: 'Rare Rainbow', label: 'Rainbow (Arcoíris)' },
+    { value: 'Rare Shiny', label: 'Shiny' },
+    { value: 'Rare Shiny GX', label: 'Shiny GX' },
+    { value: 'Promo', label: 'Promo' },
+    { value: 'Classic Collection', label: 'Classic Collection' },
+    { value: 'Radiant Rare', label: 'Radiante' },
+    { value: 'Amazing Rare', label: 'Amazing Rare' },
+    { value: 'LEGEND', label: 'LEGEND' }
 ]
 
 // --- PASOS DEL TUTORIAL ---
@@ -135,7 +149,7 @@ export default function CreateAlbumPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [showFilters, setShowFilters] = useState(false)
   const [filterType, setFilterType] = useState('')
-  const [filterRarity, setFilterRarity] = useState('') // NUEVO ESTADO RAREZA
+  const [filterRarity, setFilterRarity] = useState('') 
   const [filterArtist, setFilterArtist] = useState('')
 
   const [isSearching, setIsSearching] = useState(false)
@@ -219,7 +233,6 @@ export default function CreateAlbumPage() {
   }
 
   const fetchCards = async (reset = false) => {
-    // Permitimos buscar si hay query O si hay filtros activos
     if (searchQuery.length < 2 && !filterArtist && !filterType && !filterRarity && !reset) return
     
     setIsSearching(true)
@@ -227,12 +240,10 @@ export default function CreateAlbumPage() {
     const from = currentPage * pageSize
     const to = from + pageSize - 1
     
-    // Construimos la consulta base
     let query = supabase.from('card_variants')
       .select(`id, image_url, cards!inner(name, set_id, price_trend, price_currency, artist, types, rarity)`)
       .range(from, to)
 
-    // Aplicamos filtros dinámicos
     if (searchQuery) query = query.ilike('cards.name', `%${searchQuery}%`)
     if (filterArtist) query = query.ilike('cards.artist', `%${filterArtist}%`)
     if (filterType) query = query.contains('cards.types', [filterType])
@@ -249,11 +260,9 @@ export default function CreateAlbumPage() {
     setIsSearching(false)
   }
 
-  // Effect para lanzar búsqueda cuando cambian los inputs
   useEffect(() => {
     if(mode !== 'OFFICIAL') {
       const delay = setTimeout(() => { 
-          // Buscamos si hay texto suficiente O filtros activos
           if(searchQuery.length >= 2 || filterArtist || filterType || filterRarity) fetchCards(true) 
       }, 500)
       return () => clearTimeout(delay)
@@ -418,7 +427,7 @@ export default function CreateAlbumPage() {
                                               onClick={() => setFilterType(filterType === type.value ? '' : type.value)}
                                               className={`text-[10px] px-2 py-1.5 rounded-md text-left transition-all flex items-center justify-between border ${
                                                   filterType === type.value 
-                                                  ? `text-white shadow-md ${type.color.split(' ')[0]} border-transparent`
+                                                  ? `text-white shadow-md ${type.color.split(' ')[0]} border-transparent ring-1 ring-white/20`
                                                   : 'bg-white/5 border-transparent text-slate-400 hover:bg-white/10 hover:text-white'
                                               }`}
                                           >
