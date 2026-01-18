@@ -4,15 +4,36 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '../../lib/supabase'
-import { Search, Save, Loader2, Check, Plus, ArrowDown, Info, ArrowLeft, Crown, Zap, CheckCircle2, Filter, X } from 'lucide-react'
+import { Search, Save, Loader2, Check, Plus, ArrowDown, Info, ArrowLeft, Crown, Zap, CheckCircle2, Filter, X, Sparkles } from 'lucide-react'
 import { toast } from 'sonner'
 import TutorialOverlay, { TutorialStep } from '../components/TutorialOverlay'
 import { STARTER_PATHS } from '../../lib/ranks'
 
-// Tipos de Pokémon para el filtro
+// --- CONSTANTES DE FILTROS ---
 const POKEMON_TYPES = [
-    "Colorless", "Darkness", "Dragon", "Fairy", "Fighting", 
-    "Fire", "Grass", "Lightning", "Metal", "Psychic", "Water"
+    { value: 'Colorless', label: 'Incoloro', color: 'bg-slate-200 text-slate-600' },
+    { value: 'Darkness', label: 'Oscura', color: 'bg-slate-800 text-slate-300' },
+    { value: 'Dragon', label: 'Dragón', color: 'bg-amber-600 text-white' },
+    { value: 'Fairy', label: 'Hada', color: 'bg-pink-300 text-pink-900' },
+    { value: 'Fighting', label: 'Lucha', color: 'bg-orange-700 text-white' },
+    { value: 'Fire', label: 'Fuego', color: 'bg-red-500 text-white' },
+    { value: 'Grass', label: 'Planta', color: 'bg-green-500 text-white' },
+    { value: 'Lightning', label: 'Rayo', color: 'bg-yellow-400 text-yellow-900' },
+    { value: 'Metal', label: 'Metal', color: 'bg-slate-400 text-slate-900' },
+    { value: 'Psychic', label: 'Psíquico', color: 'bg-purple-500 text-white' },
+    { value: 'Water', label: 'Agua', color: 'bg-blue-500 text-white' }
+]
+
+const CARD_RARITIES = [
+    { value: 'Common', label: 'Común' },
+    { value: 'Uncommon', label: 'Infrecuente' },
+    { value: 'Rare', label: 'Rara' },
+    { value: 'Double Rare', label: 'Doble Rara (RR)' },
+    { value: 'Ultra Rare', label: 'Ultra Rara (UR)' },
+    { value: 'Illustration Rare', label: 'Ilustración Rara (AR)' },
+    { value: 'Special Illustration Rare', label: 'Ilustración Esp. (SAR)' },
+    { value: 'Hyper Rare', label: 'Hiper Rara (Gold)' },
+    { value: 'Promo', label: 'Promo' }
 ]
 
 // --- PASOS DEL TUTORIAL ---
@@ -82,7 +103,7 @@ const Toast = ({ message, type, onClose }: { message: string, type: 'error' | 's
 type CardVariant = { 
   id: string; 
   image_url: string; 
-  cards: { name: string; set_id: string; price_trend: number | null; price_currency: string; artist: string; types: string[] } 
+  cards: { name: string; set_id: string; price_trend: number | null; price_currency: string; artist: string; types: string[], rarity: string } 
 }
 type SetData = { id: string; name: string; release_date: string }
 type CollectionMode = 'OFFICIAL' | 'MANUAL' | 'SMART'
@@ -114,6 +135,7 @@ export default function CreateAlbumPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [showFilters, setShowFilters] = useState(false)
   const [filterType, setFilterType] = useState('')
+  const [filterRarity, setFilterRarity] = useState('') // NUEVO ESTADO RAREZA
   const [filterArtist, setFilterArtist] = useState('')
 
   const [isSearching, setIsSearching] = useState(false)
@@ -139,6 +161,7 @@ export default function CreateAlbumPage() {
         setSearchResults([])
         setSearchQuery('') 
         setFilterType('')
+        setFilterRarity('')
         setFilterArtist('')
     }
   }, [mode, canCreate, checkingPerms])
@@ -197,7 +220,7 @@ export default function CreateAlbumPage() {
 
   const fetchCards = async (reset = false) => {
     // Permitimos buscar si hay query O si hay filtros activos
-    if (searchQuery.length < 2 && !filterArtist && !filterType && !reset) return
+    if (searchQuery.length < 2 && !filterArtist && !filterType && !filterRarity && !reset) return
     
     setIsSearching(true)
     const currentPage = reset ? 0 : page
@@ -206,13 +229,14 @@ export default function CreateAlbumPage() {
     
     // Construimos la consulta base
     let query = supabase.from('card_variants')
-      .select(`id, image_url, cards!inner(name, set_id, price_trend, price_currency, artist, types)`)
+      .select(`id, image_url, cards!inner(name, set_id, price_trend, price_currency, artist, types, rarity)`)
       .range(from, to)
 
     // Aplicamos filtros dinámicos
     if (searchQuery) query = query.ilike('cards.name', `%${searchQuery}%`)
     if (filterArtist) query = query.ilike('cards.artist', `%${filterArtist}%`)
     if (filterType) query = query.contains('cards.types', [filterType])
+    if (filterRarity) query = query.eq('cards.rarity', filterRarity)
 
     const { data, error } = await query
 
@@ -230,11 +254,11 @@ export default function CreateAlbumPage() {
     if(mode !== 'OFFICIAL') {
       const delay = setTimeout(() => { 
           // Buscamos si hay texto suficiente O filtros activos
-          if(searchQuery.length >= 2 || filterArtist || filterType) fetchCards(true) 
+          if(searchQuery.length >= 2 || filterArtist || filterType || filterRarity) fetchCards(true) 
       }, 500)
       return () => clearTimeout(delay)
     }
-  }, [searchQuery, filterArtist, filterType])
+  }, [searchQuery, filterArtist, filterType, filterRarity])
 
   const toggleSelection = (id: string) => {
     const newSet = new Set(selectedCards); newSet.has(id) ? newSet.delete(id) : newSet.add(id); setSelectedCards(newSet)
@@ -351,7 +375,7 @@ export default function CreateAlbumPage() {
             </div>
             
             {mode !== 'OFFICIAL' && (
-              <div className="flex flex-col gap-2 w-full xl:w-auto">
+              <div className="flex flex-col gap-2 w-full xl:w-auto relative">
                   <div className="flex gap-2 w-full xl:w-96">
                       <div className="relative bg-slate-800 rounded-lg flex items-center px-4 py-2 w-full border border-white/5 focus-within:border-violet-500/50 transition-colors">
                         <Search size={18} className="text-slate-500 mr-2"/>
@@ -362,16 +386,69 @@ export default function CreateAlbumPage() {
                       </button>
                   </div>
 
-                  {/* PANEL DE FILTROS DESPLEGABLE */}
+                  {/* PANEL DE FILTROS DESPLEGABLE MEJORADO */}
                   {showFilters && (
-                      <div className="flex gap-2 w-full xl:w-96 animate-in slide-in-from-top-2">
-                          <select value={filterType} onChange={(e) => setFilterType(e.target.value)} className="bg-slate-900 text-xs text-white border border-white/10 rounded-lg px-3 py-2 outline-none focus:border-violet-500 w-1/3">
-                              <option value="">Tipo...</option>
-                              {POKEMON_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-                          </select>
-                          <div className="relative flex-1">
-                              <input type="text" placeholder="Artista (ej: Komiya)" value={filterArtist} onChange={(e) => setFilterArtist(e.target.value)} className="bg-slate-900 text-xs text-white border border-white/10 rounded-lg pl-3 pr-8 py-2 w-full outline-none focus:border-violet-500"/>
-                              {filterArtist && <button onClick={() => setFilterArtist('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white"><X size={12} /></button>}
+                      <div className="absolute top-full right-0 mt-2 w-72 bg-slate-900 border border-white/10 rounded-xl shadow-2xl p-4 animate-in fade-in zoom-in-95 z-50">
+                          <div className="flex justify-between items-center mb-4 border-b border-white/5 pb-2">
+                              <span className="text-xs font-bold text-slate-300 uppercase tracking-wider">Filtros</span>
+                              {(filterType || filterRarity || filterArtist) && (
+                                  <button onClick={() => { setFilterType(''); setFilterRarity(''); setFilterArtist('') }} className="text-[10px] text-red-400 hover:text-white transition-colors">
+                                      Limpiar
+                                  </button>
+                              )}
+                          </div>
+
+                          <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-slate-700">
+                              {/* FILTRO ARTISTA */}
+                              <div>
+                                  <label className="text-[10px] text-slate-500 font-bold uppercase mb-1 block">Artista</label>
+                                  <div className="relative">
+                                      <input type="text" placeholder="Ej: Komiya" value={filterArtist} onChange={(e) => setFilterArtist(e.target.value)} className="bg-slate-950 text-xs text-white border border-white/10 rounded-lg px-3 py-2 w-full outline-none focus:border-violet-500"/>
+                                      {filterArtist && <button onClick={() => setFilterArtist('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white"><X size={12} /></button>}
+                                  </div>
+                              </div>
+
+                              {/* FILTRO TIPOS */}
+                              <div>
+                                  <label className="text-[10px] text-slate-500 font-bold uppercase mb-2 block">Tipo de Pokémon</label>
+                                  <div className="grid grid-cols-2 gap-1.5">
+                                      {POKEMON_TYPES.map(type => (
+                                          <button
+                                              key={type.value}
+                                              onClick={() => setFilterType(filterType === type.value ? '' : type.value)}
+                                              className={`text-[10px] px-2 py-1.5 rounded-md text-left transition-all flex items-center justify-between border ${
+                                                  filterType === type.value 
+                                                  ? `text-white shadow-md ${type.color.split(' ')[0]} border-transparent`
+                                                  : 'bg-white/5 border-transparent text-slate-400 hover:bg-white/10 hover:text-white'
+                                              }`}
+                                          >
+                                              {type.label}
+                                              {filterType === type.value && <Check size={10} />}
+                                          </button>
+                                      ))}
+                                  </div>
+                              </div>
+
+                              {/* FILTRO RAREZAS */}
+                              <div>
+                                  <label className="text-[10px] text-slate-500 font-bold uppercase mb-2 block">Rareza / Clase</label>
+                                  <div className="flex flex-col gap-1">
+                                      {CARD_RARITIES.map(rarity => (
+                                          <button
+                                              key={rarity.value}
+                                              onClick={() => setFilterRarity(filterRarity === rarity.value ? '' : rarity.value)}
+                                              className={`text-[10px] px-2 py-2 rounded-md text-left transition-all flex items-center justify-between border ${
+                                                  filterRarity === rarity.value 
+                                                  ? 'bg-amber-600 border-amber-500 text-white shadow-md' 
+                                                  : 'bg-white/5 border-transparent text-slate-400 hover:bg-white/10 hover:text-white'
+                                              }`}
+                                          >
+                                              {rarity.label}
+                                              {filterRarity === rarity.value && <Sparkles size={12} className="text-yellow-200" />}
+                                          </button>
+                                      ))}
+                                  </div>
+                              </div>
                           </div>
                       </div>
                   )}
