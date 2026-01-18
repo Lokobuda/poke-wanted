@@ -4,10 +4,16 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '../../lib/supabase'
-import { Search, Save, Loader2, Check, Plus, ArrowDown, Info, ArrowLeft, Crown, Zap, CheckCircle2 } from 'lucide-react'
+import { Search, Save, Loader2, Check, Plus, ArrowDown, Info, ArrowLeft, Crown, Zap, CheckCircle2, Filter, X } from 'lucide-react'
 import { toast } from 'sonner'
 import TutorialOverlay, { TutorialStep } from '../components/TutorialOverlay'
 import { STARTER_PATHS } from '../../lib/ranks'
+
+// Tipos de Pokémon para el filtro
+const POKEMON_TYPES = [
+    "Colorless", "Darkness", "Dragon", "Fairy", "Fighting", 
+    "Fire", "Grass", "Lightning", "Metal", "Psychic", "Water"
+]
 
 // --- PASOS DEL TUTORIAL ---
 const CREATE_STEPS: TutorialStep[] = [
@@ -76,7 +82,7 @@ const Toast = ({ message, type, onClose }: { message: string, type: 'error' | 's
 type CardVariant = { 
   id: string; 
   image_url: string; 
-  cards: { name: string; set_id: string; price_trend: number | null; price_currency: string; } 
+  cards: { name: string; set_id: string; price_trend: number | null; price_currency: string; artist: string; types: string[] } 
 }
 type SetData = { id: string; name: string; release_date: string }
 type CollectionMode = 'OFFICIAL' | 'MANUAL' | 'SMART'
@@ -104,7 +110,12 @@ export default function CreateAlbumPage() {
   const [selectedCards, setSelectedCards] = useState<Set<string>>(new Set())
   const [selectedSet, setSelectedSet] = useState<string | null>(null)
 
+  // BÚSQUEDA Y FILTROS
   const [searchQuery, setSearchQuery] = useState('')
+  const [showFilters, setShowFilters] = useState(false)
+  const [filterType, setFilterType] = useState('')
+  const [filterArtist, setFilterArtist] = useState('')
+
   const [isSearching, setIsSearching] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [toastData, setToast] = useState<{msg: string, type: 'error' | 'success'} | null>(null)
@@ -115,8 +126,6 @@ export default function CreateAlbumPage() {
   const [hasMoreCards, setHasMoreCards] = useState(false)
   
   const pageSize = 50
-  
-  // --- LÍMITE REAL DE ÁLBUMES ---
   const FREE_LIMIT = 1
 
   useEffect(() => {
@@ -129,6 +138,8 @@ export default function CreateAlbumPage() {
     } else { 
         setSearchResults([])
         setSearchQuery('') 
+        setFilterType('')
+        setFilterArtist('')
     }
   }, [mode, canCreate, checkingPerms])
 
@@ -152,24 +163,15 @@ export default function CreateAlbumPage() {
          setBuddyImage(img)
       }
 
-      // --- CONTEO DIRECTO ---
-      const { count } = await supabase
-        .from('albums')
-        .select('id', { count: 'exact' }) // Sin head:true para evitar errores
-        .eq('user_id', session.user.id)
-      
+      const { count } = await supabase.from('albums').select('id', { count: 'exact' }).eq('user_id', session.user.id)
       const totalAlbums = count || 0
       setCurrentAlbums(totalAlbums)
 
       const tutorialPhase = localStorage.getItem('tutorial_phase')
-      
-      // Permitir si es GYM, Tutorial, o tiene menos de 1 álbum.
       const allowCreate = status === 'GYM' || totalAlbums < FREE_LIMIT || tutorialPhase === 'creating'
       setCanCreate(allowCreate)
 
-      if (tutorialPhase === 'creating') {
-          setTimeout(() => setShowTutorial(true), 500)
-      }
+      if (tutorialPhase === 'creating') setTimeout(() => setShowTutorial(true), 500)
 
     } catch (error) {
       console.error(error)
@@ -194,12 +196,26 @@ export default function CreateAlbumPage() {
   }
 
   const fetchCards = async (reset = false) => {
-    if (searchQuery.length < 2 && !reset) return
+    // Permitimos buscar si hay query O si hay filtros activos
+    if (searchQuery.length < 2 && !filterArtist && !filterType && !reset) return
+    
     setIsSearching(true)
     const currentPage = reset ? 0 : page
     const from = currentPage * pageSize
     const to = from + pageSize - 1
-    const { data, error } = await supabase.from('card_variants').select(`id, image_url, cards!inner(name, set_id, price_trend, price_currency)`).ilike('cards.name', `%${searchQuery}%`).range(from, to)
+    
+    // Construimos la consulta base
+    let query = supabase.from('card_variants')
+      .select(`id, image_url, cards!inner(name, set_id, price_trend, price_currency, artist, types)`)
+      .range(from, to)
+
+    // Aplicamos filtros dinámicos
+    if (searchQuery) query = query.ilike('cards.name', `%${searchQuery}%`)
+    if (filterArtist) query = query.ilike('cards.artist', `%${filterArtist}%`)
+    if (filterType) query = query.contains('cards.types', [filterType])
+
+    const { data, error } = await query
+
     if (!error) {
       const newCards = data as any[]
       if (reset) { setSearchResults(newCards); setPage(1) } 
@@ -209,12 +225,16 @@ export default function CreateAlbumPage() {
     setIsSearching(false)
   }
 
+  // Effect para lanzar búsqueda cuando cambian los inputs
   useEffect(() => {
     if(mode !== 'OFFICIAL') {
-      const delay = setTimeout(() => { if(searchQuery.length >= 2) fetchCards(true) }, 500)
+      const delay = setTimeout(() => { 
+          // Buscamos si hay texto suficiente O filtros activos
+          if(searchQuery.length >= 2 || filterArtist || filterType) fetchCards(true) 
+      }, 500)
       return () => clearTimeout(delay)
     }
-  }, [searchQuery])
+  }, [searchQuery, filterArtist, filterType])
 
   const toggleSelection = (id: string) => {
     const newSet = new Set(selectedCards); newSet.has(id) ? newSet.delete(id) : newSet.add(id); setSelectedCards(newSet)
@@ -270,58 +290,28 @@ export default function CreateAlbumPage() {
 
   if (checkingPerms) return <div className="min-h-screen bg-slate-950 flex items-center justify-center"><Loader2 className="animate-spin text-violet-500" /></div>
 
-  // --- AQUÍ ESTÁ LA PANTALLA DE BLOQUEO CORREGIDA ---
   if (!canCreate) { 
       return ( 
         <div className="min-h-screen bg-slate-950 text-white p-8 flex flex-col items-center justify-center text-center font-sans">
             <div className="max-w-md w-full relative z-10 animate-in fade-in slide-in-from-bottom-8 duration-700">
-                {/* MODIFICACIÓN IMPORTANTE: 
-                   1. Quitamos 'overflow-hidden' del contenedor principal para que la corona sobresalga.
-                   2. Añadimos un div interno (absolute inset-0) que SÍ tiene 'overflow-hidden' para gestionar el fondo desenfocado.
-                */}
                 <div className="bg-slate-900/80 backdrop-blur-xl border border-amber-500/30 rounded-3xl p-8 shadow-[0_0_50px_rgba(245,158,11,0.15)] text-center relative">
-                    
-                    {/* FONDO RECORTADO (Para que la mancha de luz no se salga, pero la corona sí) */}
                     <div className="absolute inset-0 rounded-3xl overflow-hidden pointer-events-none">
                        <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/10 blur-[60px] rounded-full"/>
                     </div>
-                    
-                    {/* CONTENIDO (La corona ahora flota libremente gracias al z-index y a que el padre no corta) */}
                     <div className="relative z-10">
                         <div className="w-20 h-20 bg-gradient-to-br from-amber-400 to-orange-600 rounded-2xl mx-auto -mt-16 mb-6 flex items-center justify-center shadow-lg shadow-amber-900/40 rotate-3 transform hover:rotate-6 transition-transform">
                             <Crown className="text-white drop-shadow-md" size={40} strokeWidth={2.5} />
                         </div>
-
                         <h1 className="text-2xl font-black text-white italic tracking-tight mb-2 uppercase">Límite Alcanzado</h1>
-                        <p className="text-slate-400 text-sm mb-8 leading-relaxed">
-                            Has utilizado tu <span className="text-white font-bold">ranura de creación gratuita</span>. Para añadir más colecciones, necesitas el pase PRO.
-                        </p>
-
+                        <p className="text-slate-400 text-sm mb-8 leading-relaxed">Has utilizado tu <span className="text-white font-bold">ranura de creación gratuita</span>. Para añadir más colecciones, necesitas el pase PRO.</p>
                         <div className="bg-slate-950/50 rounded-xl p-5 mb-8 text-left space-y-3 border border-white/5">
-                            {/* LISTA DE BENEFICIOS ACTUALIZADA */}
-                            <div className="flex items-center gap-3">
-                                <CheckCircle2 size={16} className="text-emerald-400" />
-                                <span className="text-slate-200 text-xs font-medium">Álbumes ilimitados</span>
-                            </div>
-                            <div className="flex items-center gap-3">
-                                <CheckCircle2 size={16} className="text-emerald-400" />
-                                <span className="text-slate-200 text-xs font-medium">Acceso a la Cámara acorazada</span>
-                            </div>
-                            <div className="flex items-center gap-3">
-                                <CheckCircle2 size={16} className="text-emerald-400" />
-                                <span className="text-slate-200 text-xs font-medium">Acceso al Almacén sellado</span>
-                            </div>
+                            <div className="flex items-center gap-3"><CheckCircle2 size={16} className="text-emerald-400" /><span className="text-slate-200 text-xs font-medium">Álbumes ilimitados</span></div>
+                            <div className="flex items-center gap-3"><CheckCircle2 size={16} className="text-emerald-400" /><span className="text-slate-200 text-xs font-medium">Acceso a la Cámara acorazada</span></div>
+                            <div className="flex items-center gap-3"><CheckCircle2 size={16} className="text-emerald-400" /><span className="text-slate-200 text-xs font-medium">Acceso al Almacén sellado</span></div>
                         </div>
-
                         <div className="space-y-3">
-                            <button onClick={() => router.push('/profile?open_pro=true')} className="w-full group relative bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-slate-950 font-black py-4 rounded-xl uppercase tracking-widest text-sm transition-all hover:scale-[1.02] active:scale-95 shadow-lg shadow-amber-900/20 overflow-hidden flex items-center justify-center gap-2">
-                                <Zap size={18} fill="currentColor" /> DESBLOQUEAR PRO
-                            </button>
-                            <Link href="/profile">
-                                <button className="w-full py-3 text-slate-500 hover:text-white text-xs font-bold uppercase tracking-widest transition-colors flex items-center justify-center gap-2">
-                                    <ArrowLeft size={14} /> VOLVER A MI COLECCIÓN
-                                </button>
-                            </Link>
+                            <button onClick={() => router.push('/profile?open_pro=true')} className="w-full group relative bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-slate-950 font-black py-4 rounded-xl uppercase tracking-widest text-sm transition-all hover:scale-[1.02] active:scale-95 shadow-lg shadow-amber-900/20 overflow-hidden flex items-center justify-center gap-2"><Zap size={18} fill="currentColor" /> DESBLOQUEAR PRO</button>
+                            <Link href="/profile"><button className="w-full py-3 text-slate-500 hover:text-white text-xs font-bold uppercase tracking-widest transition-colors flex items-center justify-center gap-2"><ArrowLeft size={14} /> VOLVER A MI COLECCIÓN</button></Link>
                         </div>
                     </div>
                 </div>
@@ -342,7 +332,7 @@ export default function CreateAlbumPage() {
           />
       )}
 
-      <div className="sticky top-[60px] z-40 bg-slate-900/90 backdrop-blur border-b border-white/10 p-6">
+      <div className="sticky top-[60px] z-40 bg-slate-900/90 backdrop-blur border-b border-white/10 p-6 transition-all">
          <div className="max-w-[1600px] mx-auto flex flex-col xl:flex-row gap-6 items-center">
             <Link href="/profile">
               <button className="flex items-center gap-2 text-slate-500 hover:text-white transition-colors">
@@ -354,16 +344,37 @@ export default function CreateAlbumPage() {
                <input type="text" placeholder="Ponle nombre 😉" className="bg-transparent text-3xl md:text-5xl font-black text-white w-full outline-none placeholder:text-slate-700" value={albumName} onChange={(e)=>setAlbumName(e.target.value)}/>
             </div>
             
-            <div id="tour-modes" className="flex bg-slate-950 p-1 rounded-xl border border-white/10">
-               <button onClick={()=>setMode('OFFICIAL')} className={`px-4 py-2 rounded-lg text-xs font-bold ${mode==='OFFICIAL'?'bg-violet-600 text-white':'text-slate-500'}`}>OFICIAL</button>
-               <button onClick={()=>setMode('MANUAL')} className={`px-4 py-2 rounded-lg text-xs font-bold ${mode==='MANUAL'?'bg-slate-700 text-white':'text-slate-500'}`}>MANUAL</button>
-               <button onClick={()=>setMode('SMART')} className={`px-4 py-2 rounded-lg text-xs font-bold ${mode==='SMART'?'bg-indigo-600 text-white':'text-slate-500'}`}>SMART</button>
+            <div id="tour-modes" className="flex bg-slate-950 p-1 rounded-xl border border-white/10 shrink-0">
+               <button onClick={()=>setMode('OFFICIAL')} className={`px-4 py-2 rounded-lg text-xs font-bold transition-colors ${mode==='OFFICIAL'?'bg-violet-600 text-white':'text-slate-500 hover:text-white'}`}>OFICIAL</button>
+               <button onClick={()=>setMode('MANUAL')} className={`px-4 py-2 rounded-lg text-xs font-bold transition-colors ${mode==='MANUAL'?'bg-slate-700 text-white':'text-slate-500 hover:text-white'}`}>MANUAL</button>
+               <button onClick={()=>setMode('SMART')} className={`px-4 py-2 rounded-lg text-xs font-bold transition-colors ${mode==='SMART'?'bg-indigo-600 text-white':'text-slate-500 hover:text-white'}`}>SMART</button>
             </div>
             
             {mode !== 'OFFICIAL' && (
-              <div className="relative bg-slate-800 rounded-lg flex items-center px-4 py-2 w-full xl:w-96 border border-white/5 focus-within:border-violet-500/50 transition-colors">
-                 <Search size={18} className="text-slate-500 mr-2"/>
-                 <input type="text" placeholder="Buscar..." className="bg-transparent text-white w-full outline-none" value={searchQuery} onChange={(e)=>setSearchQuery(e.target.value)}/>
+              <div className="flex flex-col gap-2 w-full xl:w-auto">
+                  <div className="flex gap-2 w-full xl:w-96">
+                      <div className="relative bg-slate-800 rounded-lg flex items-center px-4 py-2 w-full border border-white/5 focus-within:border-violet-500/50 transition-colors">
+                        <Search size={18} className="text-slate-500 mr-2"/>
+                        <input type="text" placeholder="Buscar..." className="bg-transparent text-white w-full outline-none text-sm" value={searchQuery} onChange={(e)=>setSearchQuery(e.target.value)}/>
+                      </div>
+                      <button onClick={() => setShowFilters(!showFilters)} className={`p-2 rounded-lg border border-white/10 transition-colors ${showFilters ? 'bg-violet-600 text-white border-violet-500' : 'bg-slate-800 text-slate-400 hover:text-white'}`}>
+                          <Filter size={20} />
+                      </button>
+                  </div>
+
+                  {/* PANEL DE FILTROS DESPLEGABLE */}
+                  {showFilters && (
+                      <div className="flex gap-2 w-full xl:w-96 animate-in slide-in-from-top-2">
+                          <select value={filterType} onChange={(e) => setFilterType(e.target.value)} className="bg-slate-900 text-xs text-white border border-white/10 rounded-lg px-3 py-2 outline-none focus:border-violet-500 w-1/3">
+                              <option value="">Tipo...</option>
+                              {POKEMON_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                          </select>
+                          <div className="relative flex-1">
+                              <input type="text" placeholder="Artista (ej: Komiya)" value={filterArtist} onChange={(e) => setFilterArtist(e.target.value)} className="bg-slate-900 text-xs text-white border border-white/10 rounded-lg pl-3 pr-8 py-2 w-full outline-none focus:border-violet-500"/>
+                              {filterArtist && <button onClick={() => setFilterArtist('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white"><X size={12} /></button>}
+                          </div>
+                      </div>
+                  )}
               </div>
             )}
          </div>
